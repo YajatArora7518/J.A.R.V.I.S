@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "version": "3.0.0",
+    "created_at": "2026-08-08T10:21:52.554437",
+    "last_updated": "2026-08-08T10:21:52.821400",
+    "learning_enabled": false,
+    "predictive_enabled": false
+  },
+  "routines": {},
+  "tool_reflexes": {},
+  "user_commands": {}
+}

@@ -1,0 +1,6 @@
+{
+  "enabled": false,
+  "allowed_contacts": [],
+  "template": "Hello! I am currently away. JARVIS received your message and will notify my owner.",
+  "rate_limit_minutes": 5
+}

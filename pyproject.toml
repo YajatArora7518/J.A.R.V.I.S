@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis-api"
+version = "1.0.0"
+description = "JARVIS — Production-Grade Personal AI Assistant & Developer Platform SDK/API"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Yajat Arora" }
+]
+keywords = ["jarvis", "ai", "voice-assistant", "automation", "win32", "playwright", "gemini-live", "agent"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: Microsoft :: Windows",
+]
+dependencies = [
+    "sounddevice",
+    "google-genai",
+    "google-generativeai",
+    "pillow",
+    "requests",
+    "beautifulsoup4",
+    "duckduckgo-search",
+    "playwright",
+    "pyautogui",
+    "pyperclip",
+    "pygetwindow",
+    "opencv-python",
+    "numpy",
+    "mss",
+    "psutil",
+    "comtypes",
+    "pycaw",
+    "win10toast",
+    "send2trash",
+    "youtube-transcript-api",
+    "pywinauto",
+    "PyQt6",
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "httpx",
+]
+
+[project.scripts]
+jarvis = "core.cli:cli_main"
+jarvis-api = "jarvis_api.server:main"
+jarvis-status = "core.cli:cli_status"
+jarvis-test = "tests.run_tests:main"
+
+
+[tool.setuptools]
+packages = ["jarvis_api", "core", "actions", "agent", "memory"]
+py-modules = ["main", "ui", "or_client"]
+

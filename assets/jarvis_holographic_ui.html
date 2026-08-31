@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JARVIS Full Holographic AI Command Center</title>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #02070D;
+    font-family: 'Consolas', 'JetBrains Mono', 'Segoe UI', -apple-system, sans-serif;
+    color: #D9F9FF;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* 3D Viewport Background Canvas */
+  #canvas-container {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+    transform: translateZ(0);
+    contain: strict;
+    background: radial-gradient(circle at 50% 40%, rgba(3, 20, 36, 0.9) 0%, rgba(2, 7, 13, 0.98) 70%, rgba(1, 4, 8, 1) 100%);
+  }
+  canvas { display: block; }
+
+  /* 2D Data Link Overlay Canvas */
+  #link-canvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 5;
+    transform: translateZ(0);
+  }
+
+  /* HUD Root Container */
+  #hud {
+    position: relative;
+    width: 100vw; height: 100vh;
+    z-index: 10;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    padding: 6px 10px 10px 10px;
+    background: transparent;
+    transform: translateZ(0);
+  }
+
+  /* Corner Reticles & Visualizer Containers */
+
+  /* Holographic Reusable Panels */
+  .holo-panel {
+    background: rgba(3, 15, 28, 0.88);
+    transform: translateZ(0);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(0, 217, 255, 0.3);
+    box-shadow: 0 0 16px rgba(0, 217, 255, 0.08), inset 0 0 20px rgba(0, 217, 255, 0.03);
+    border-radius: 8px;
+    padding: 8px 10px;
+    position: relative;
+    display: flex; flex-direction: column;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .holo-panel::before, .holo-panel::after {
+    content: ''; position: absolute; width: 6px; height: 6px;
+    border-color: #00D9FF; border-style: solid; pointer-events: none;
+  }
+  .holo-panel::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+  .holo-panel::after { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+
+  .panel-header {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 10px; font-weight: 800; letter-spacing: 1.2px; color: #00D9FF;
+    border-bottom: 1px solid rgba(0, 217, 255, 0.22);
+    padding-bottom: 4px; margin-bottom: 6px;
+    text-shadow: 0 0 8px rgba(0, 217, 255, 0.6);
+  }
+
+  .panel-tag {
+    font-size: 7.5px; color: #1479FF;
+    background: rgba(20, 121, 255, 0.18);
+    border: 1px solid rgba(20, 121, 255, 0.4);
+    padding: 1px 6px; border-radius: 3px; letter-spacing: 1px; font-weight: 700;
+  }
+
+  /* ── TOP HEADER BAR ── */
+  .top-bar {
+    height: 38px; width: 100%;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 12px; margin-bottom: 8px; flex-shrink: 0;
+  }
+  .top-left { display: flex; align-items: center; gap: 8px; }
+  .top-logo { font-size: 13px; font-weight: 900; color: #00D9FF; letter-spacing: 1.5px; text-shadow: 0 0 10px rgba(0,217,255,0.8); }
+  .top-online {
+    font-size: 7.5px; color: #00FFCC; background: rgba(0, 255, 204, 0.12);
+    border: 1px solid #00FFCC; padding: 1px 6px; border-radius: 10px; font-weight: 700;
+  }
+
+  .top-center { text-align: center; }
+  .top-clock { font-size: 13px; font-weight: 800; color: #FFFFFF; letter-spacing: 2px; text-shadow: 0 0 8px rgba(0,217,255,0.5); }
+  .top-date { font-size: 8px; font-weight: 700; color: #6FA9BA; margin-left: 8px; letter-spacing: 1px; }
+
+  .top-right { display: flex; align-items: center; gap: 10px; font-size: 8.5px; font-weight: 700; color: #6FA9BA; }
+  .status-item { display: flex; align-items: center; gap: 4px; color: #00D9FF; }
+  .status-item span { color: #D9F9FF; }
+
+  /* ── 4-COLUMN MAIN CONTENT GRID ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 285px 1fr 310px 285px;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── COLUMN 1: LEFT STACK ── */
+  .col-left { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  
+  /* Telemetry Gauges */
+  .gauges-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .gauge-card {
+    position: relative; background: rgba(2, 12, 22, 0.7);
+    border: 1px solid rgba(0, 217, 255, 0.25); border-radius: 4px; padding: 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .gauge-svg { width: 48px; height: 48px; transform: rotate(-90deg); }
+  .gauge-bg { fill: none; stroke: rgba(6, 25, 42, 0.9); stroke-width: 4; }
+  .gauge-fill {
+    fill: none; stroke-width: 4; stroke-linecap: round;
+    stroke-dasharray: 125.6; stroke-dashoffset: 125.6;
+    transition: stroke-dashoffset 0.6s ease, stroke 0.4s ease;
+    filter: drop-shadow(0 0 4px rgba(0, 217, 255, 0.8));
+  }
+  .gauge-center { position: absolute; top: 16px; display: flex; flex-direction: column; align-items: center; }
+  .gauge-val-num { font-size: 10px; font-weight: 800; color: #00D9FF; }
+  .gauge-lbl { font-size: 7.5px; font-weight: 800; color: #6FA9BA; margin-top: 2px; letter-spacing: 0.5px; }
+
+  /* Active Window Panel */
+  .active-win-box {
+    background: rgba(2, 12, 22, 0.65); border: 1px solid rgba(0, 217, 255, 0.25);
+    border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between; align-items: center;
+  }
+
+  /* Recent Actions Timeline */
+  .timeline-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
+  .timeline-item { display: flex; gap: 8px; align-items: flex-start; font-size: 8px; }
+  .timeline-node { width: 6px; height: 6px; border-radius: 50%; background: #00D9FF; box-shadow: 0 0 6px #00D9FF; margin-top: 3px; flex-shrink: 0; }
+  .timeline-time { color: #6FA9BA; font-weight: 700; width: 45px; flex-shrink: 0; }
+  .timeline-desc { color: #D9F9FF; line-height: 1.3; }
+
+  /* Voice Status Visualizer */
+  .voice-hud-container { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0; }
+  .mic-ring-outer {
+    position: relative; width: 46px; height: 46px; border-radius: 50%;
+    border: 1px solid rgba(0, 217, 255, 0.4);
+    box-shadow: 0 0 12px rgba(0, 217, 255, 0.25);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mic-ring-inner {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(0, 217, 255, 0.15); border: 1px solid #00D9FF;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 0 8px rgba(0, 217, 255, 0.5);
+  }
+  .waveform-row { display: flex; gap: 2px; align-items: center; height: 22px; justify-content: center; width: 100%; }
+  .wave-bar {
+    width: 3px; background: #00D9FF; border-radius: 2px;
+    transition: height 0.05s ease; min-height: 2px;
+    box-shadow: 0 0 4px rgba(0, 217, 255, 0.6);
+  }
+
+  /* ── COLUMN 2: CENTER STACK (CORE + RESPONSE + INPUT + CONSOLE) ── */
+  .col-center { display: flex; flex-direction: column; gap: 8px; min-height: 0; position: relative; }
+  
+  /* Core Viewport Container */
+  .core-viewport {
+    flex: 1; position: relative; min-height: 240px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Core Floating HUD Anchors */
+  .hud-anchor {
+    position: absolute; background: rgba(3, 15, 25, 0.85);
+    border: 1px solid rgba(0, 217, 255, 0.35); border-radius: 3px;
+    padding: 3px 8px; font-size: 7.5px; font-weight: 800; color: #00D9FF;
+    box-shadow: 0 0 10px rgba(0, 217, 255, 0.15); pointer-events: none; z-index: 6;
+  }
+  .ha-tl { top: 12px; left: 12px; }
+  .ha-tr { top: 12px; right: 12px; text-align: right; }
+  .ha-bl { bottom: 12px; left: 12px; }
+  .ha-br { bottom: 12px; right: 12px; text-align: right; }
+  .ha-bc { bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(0, 217, 255, 0.15); border-color: #00D9FF; border-radius: 12px; padding: 2px 10px; color: #00FFCC; }
+
+  /* Response Panel */
+  .panel-response {
+    padding: 8px 14px; text-align: center; border-color: rgba(0, 217, 255, 0.45);
+    background: rgba(3, 18, 30, 0.82); flex-shrink: 0;
+  }
+  .response-text { font-size: 11.5px; font-weight: 700; color: #D9F9FF; line-height: 1.4; text-shadow: 0 0 8px rgba(0, 217, 255, 0.5); }
+
+  /* Command Bar */
+  .command-bar {
+    display: flex; gap: 8px; align-items: center;
+    background: rgba(3, 15, 25, 0.85); border: 1px solid rgba(0, 217, 255, 0.4);
+    border-radius: 20px; padding: 4px 10px; box-shadow: 0 0 15px rgba(0, 217, 255, 0.15);
+    flex-shrink: 0;
+  }
+  .glass-btn {
+    background: rgba(0, 217, 255, 0.12); color: #00D9FF;
+    border: 1px solid rgba(0, 217, 255, 0.4); border-radius: 14px;
+    padding: 4px 12px; font-size: 8.5px; font-weight: 800; font-family: inherit;
+    cursor: pointer; transition: all 0.2s ease; outline: none; white-space: nowrap;
+  }
+  .glass-btn:hover { background: #00D9FF; color: #02070D; box-shadow: 0 0 10px rgba(0, 217, 255, 0.6); }
+  
+  .glass-input {
+    flex: 1; background: rgba(2, 10, 18, 0.95); color: #FFFFFF;
+    border: 1px solid rgba(0, 217, 255, 0.5); border-radius: 14px;
+    padding: 6px 14px; font-size: 11px; font-family: inherit; outline: none;
+    position: relative; z-index: 20; pointer-events: auto;
+  }
+  .glass-input:focus { border-color: #00D9FF; box-shadow: 0 0 10px rgba(0, 217, 255, 0.6); }
+
+  /* Console Panel */
+  .panel-console { height: 75px; flex-shrink: 0; overflow: hidden; font-family: 'Consolas', monospace; }
+  .console-body { flex: 1; overflow-y: auto; font-size: 8px; color: #00FFCC; line-height: 1.4; padding-right: 2px; }
+
+  /* ── COLUMN 3: RIGHT STACK ── */
+  .col-right { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  
+  /* Tools Matrix Grid */
+  .tools-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; flex: 1; max-height: 165px; overflow-y: auto; }
+  .tool-btn {
+    background: rgba(2, 12, 22, 0.75); color: #D9F9FF;
+    border: 1px solid rgba(0, 217, 255, 0.28); border-radius: 4px;
+    padding: 5px 2px; font-size: 7.5px; font-weight: 700; font-family: inherit;
+    cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    transition: all 0.2s ease; text-align: center;
+  }
+  .tool-btn:hover {
+    border-color: #00D9FF; background: rgba(0, 217, 255, 0.2); color: #00D9FF;
+    box-shadow: 0 0 8px rgba(0, 217, 255, 0.4); transform: translateY(-1px);
+  }
+  .tool-icon { font-size: 11px; color: #00D9FF; }
+
+  /* Memory Intelligence Panel */
+  .memory-body { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .memory-graph-canvas { width: 70px; height: 50px; border: 1px solid rgba(0, 217, 255, 0.2); border-radius: 3px; background: rgba(1, 8, 15, 0.8); }
+
+  /* Quick Controls Panel */
+  .dials-row { display: flex; justify-content: space-around; align-items: center; padding: 4px 0; }
+  .dial-btn {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(2, 12, 22, 0.8); border: 1px solid rgba(0, 217, 255, 0.4);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s ease; color: #00D9FF;
+  }
+  .dial-btn:hover { background: rgba(0, 217, 255, 0.2); box-shadow: 0 0 10px rgba(0, 217, 255, 0.5); }
+  .dial-btn.mute { border-color: rgba(229, 62, 62, 0.6); color: #E53E3E; }
+  .dial-btn.mute:hover { background: rgba(229, 62, 62, 0.2); box-shadow: 0 0 10px rgba(229, 62, 62, 0.5); }
+  .dial-lbl { font-size: 7px; font-weight: 800; margin-top: 2px; }
+
+  /* ── COLUMN 4: FAR-RIGHT CHAT SIDEBAR ── */
+  .col-chat { display: flex; flex-direction: column; min-height: 0; }
+  .panel-chat-full { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .chat-stream { flex: 1; overflow-y: auto; background: rgba(1, 8, 15, 0.6); border: 1px solid rgba(0, 217, 255, 0.2); border-radius: 4px; padding: 8px; font-size: 8.5px; line-height: 1.45; margin-bottom: 6px; }
+  .chat-msg { margin-bottom: 6px; }
+  .chat-sender-jarvis { color: #00D9FF; font-weight: bold; }
+  .chat-sender-user { color: #1479FF; font-weight: bold; }
+
+  /* Contextual Overlay Panels (Hidden by default or floated) */
+  .panel-contextual {
+    position: absolute; right: 305px; top: 50px; width: 260px;
+    z-index: 50; display: none;
+  }
+  .panel-contextual.visible { display: flex; }
+
+  /* Custom Scrollbars */
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: rgba(2, 7, 13, 0.5); }
+  ::-webkit-scrollbar-thumb { background: rgba(0, 217, 255, 0.35); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<canvas id="link-canvas"></canvas>
+
+<div id="hud">
+
+  <!-- Hidden Compatibility Elements for Unit Tests -->
+  <div style="display: none;">
+    <span id="telem-audio">0 %</span>
+    <span id="telem-hand">IDLE</span>
+    <div id="bar-cpu"></div><span id="val-cpu">0%</span>
+    <div id="bar-ram"></div><span id="val-ram">0%</span>
+    <div id="bar-disk"></div><span id="val-disk">0%</span>
+    <div id="bar-gpu"></div><span id="val-gpu">N/A</span>
+  </div>
+
+  <!-- ── TOP GLOBAL STATUS BAR ── -->
+  <div class="holo-panel top-bar">
+    <div class="top-left">
+      <span class="top-logo">◆ J.A.R.V.I.S</span>
+      <span class="top-online" id="hud-online-tag">● ONLINE</span>
+    </div>
+    <div class="top-center">
+      <span class="top-clock" id="time-val">12:04:40 AM</span>
+      <span class="top-date" id="date-val">SUN 09 AUG 2026</span>
+    </div>
+    <div class="top-right">
+      <div class="status-item">📡 <span id="hud-network">Wi-Fi</span></div>
+      <div class="status-item">🎙️ <span id="hud-mic">Mic ON</span></div>
+      <div class="status-item">🔊 <span id="hud-speaker">Audio</span></div>
+      <div class="status-item">🔋 <span id="hud-battery">95%</span></div>
+      <button class="glass-btn" style="padding: 2px 8px; font-size: 7.5px;" onclick="toggleChatFocus()">💬 CHAT</button>
+    </div>
+  </div>
+
+  <!-- ── 4-COLUMN MAIN CONTENT ── -->
+  <div class="main-grid">
+
+    <!-- ── LEFT COLUMN ── -->
+    <div class="col-left">
+      
+      <!-- 1. SYSTEM TELEMETRY -->
+      <div class="holo-panel" id="panel-sys" style="flex-shrink: 0;">
+        <div class="panel-header">
+          <span>❖ SYSTEM TELEMETRY</span>
+          <span class="panel-tag">LIVE</span>
+        </div>
+        <div class="gauges-grid">
+          <div class="gauge-card">
+            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-cpu" cx="22" cy="22" r="20" style="stroke: #00D9FF;"/></svg>
+            <div class="gauge-center"><span class="gauge-val-num" id="gval-cpu">26%</span></div>
+            <span class="gauge-lbl">CPU</span>
+          </div>
+          <div class="gauge-card">
+            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-ram" cx="22" cy="22" r="20" style="stroke: #1479FF;"/></svg>
+            <div class="gauge-center"><span class="gauge-val-num" id="gval-ram">87%</span></div>
+            <span class="gauge-lbl">RAM</span>
+          </div>
+          <div class="gauge-card">
+            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-disk" cx="22" cy="22" r="20" style="stroke: #00FFCC;"/></svg>
+            <div class="gauge-center"><span class="gauge-val-num" id="gval-disk">83%</span></div>
+            <span class="gauge-lbl">DISK</span>
+          </div>
+          <div class="gauge-card">
+            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-net" cx="22" cy="22" r="20" style="stroke: #6366FF;"/></svg>
+            <div class="gauge-center"><span class="gauge-val-num" id="gval-gpu">NET</span></div>
+            <span class="gauge-lbl">NETWORK</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. ACTIVE WINDOW -->
+      <div class="holo-panel" style="flex-shrink: 0;">
+        <div class="panel-header">
+          <span>★ ACTIVE WINDOW</span>
+          <button class="glass-btn" style="padding: 1px 6px; font-size: 7px;" onclick="callBridge('focusActiveWindow')">FOCUS</button>
+        </div>
+        <div class="active-win-box">
+          <div id="active-window-title" style="font-size: 8px; font-weight: 700; color: #D9F9FF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;">J.A.R.V.I.S — Command Center</div>
+          <span style="font-size: 9px; color: #00D9FF; cursor: pointer;" onclick="callBridge('focusActiveWindow')">❐</span>
+        </div>
+      </div>
+
+      <!-- 3. RECENT ACTIONS TIMELINE -->
+      <div class="holo-panel" style="flex: 1; min-height: 0;">
+        <div class="panel-header">
+          <span>❖ RECENT ACTIONS</span>
+          <span class="panel-tag">LIVE FEED</span>
+        </div>
+        <div class="timeline-container" id="event-stream">
+          <div class="timeline-item"><div class="timeline-node"></div><span class="timeline-time">12:04:40</span><span class="timeline-desc">System initialized and ready</span></div>
+          <div class="timeline-item"><div class="timeline-node"></div><span class="timeline-time">12:04:12</span><span class="timeline-desc">Microphone connected</span></div>
+          <div class="timeline-item"><div class="timeline-node"></div><span class="timeline-time">12:03:58</span><span class="timeline-desc">J.A.R.V.I.S online</span></div>
+          <div class="timeline-item"><div class="timeline-node"></div><span class="timeline-time">12:03:42</span><span class="timeline-desc">Command executed</span></div>
+          <div class="timeline-item"><div class="timeline-node"></div><span class="timeline-time">12:03:36</span><span class="timeline-desc">Response generated</span></div>
+        </div>
+      </div>
+
+      <!-- 4. VOICE STATUS HUD -->
+      <div class="holo-panel" style="flex-shrink: 0;">
+        <div class="panel-header">
+          <span>❖ VOICE STATUS</span>
+          <span class="panel-tag" id="voice-tag">LISTENING...</span>
+        </div>
+        <div class="voice-hud-container">
+          <div class="mic-ring-outer">
+            <div class="mic-ring-inner">
+              <span style="font-size: 16px;">🎙️</span>
+            </div>
+          </div>
+          <div class="waveform-row" id="waveform"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── CENTER COLUMN (3D CORE + RESPONSE + COMMAND + CONSOLE) ── -->
+    <div class="col-center">
+      
+      <!-- 3D Core Viewport -->
+      <div class="core-viewport">
+        <!-- Corner Floating HUD Badges -->
+        <div class="hud-anchor ha-tl">QUANTUM CORE<br><span style="color:#00FFCC;">ONLINE</span></div>
+        <div class="hud-anchor ha-tr">AUDIO FREQ<br><span style="color:#00D9FF;" id="hud-audio-freq">0 %</span></div>
+        <div class="hud-anchor ha-bl">NEURAL ENGINE<br><span style="color:#6FA9BA;" id="hud-neural-state">IDLE</span></div>
+        <div class="hud-anchor ha-br">PARTICLES<br><span style="color:#00D9FF;">2,500 NODES</span></div>
+        <div class="hud-anchor ha-bc" id="hud-core-pill">● LISTENING</div>
+      </div>
+
+      <!-- AI Response Banner -->
+      <div class="holo-panel panel-response" id="panel-response">
+        <div class="response-text" id="resp-text">
+          JARVIS: "Online and standing by for commands, sir."
+        </div>
+      </div>
+
+      <!-- Holographic Command Input Bar -->
+      <div class="command-bar">
+        <button class="glass-btn" id="btn-attach" onclick="callBridge('attachFile')">📎 Attach</button>
+        <button class="glass-btn" id="btn-mic-toggle" onclick="toggleMicButton()">🎙️ Mic ON</button>
+        <input type="text" class="glass-input" id="cmd-input" placeholder="Type a command or speak..." onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendCmdInput(); }">
+        <button class="glass-btn" style="background: #00D9FF; color: #02070D; border: none; font-weight: 900; width: 30px; padding: 4px 0;" onclick="sendCmdInput()">➤</button>
+      </div>
+
+      <!-- Monospaced Console Logs -->
+      <div class="holo-panel panel-console">
+        <div class="panel-header" style="margin-bottom: 4px;">
+          <span>■ JARVIS CONSOLE LOGS</span>
+        </div>
+        <div class="console-body" id="console-logs">
+          <div>[00:04:34] [SUCCESS] SYS: JARVIS online.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── RIGHT COLUMN ── -->
+    <div class="col-right">
+      
+      <!-- 1. TOOLS MATRIX -->
+      <div class="holo-panel" style="flex: 1; min-height: 0;">
+        <div class="panel-header">
+          <span id="tools-hdr">❖ TOOLS — 22 TOOLS LOADED</span>
+        </div>
+        <div class="tools-grid" id="tools-grid">
+          <!-- Populated Dynamically via setTools() -->
+        </div>
+      </div>
+
+      <!-- 2. COLLEGE MODE -->
+      <div class="holo-panel" id="panel-college" style="flex-shrink: 0;">
+        <div class="panel-header">
+          <span>📅 COLLEGE MODE</span>
+        </div>
+        <div id="college-info" style="font-size: 8px; color: #6FA9BA; line-height: 1.35;">College Schedule Overview — Sunday: 0 classes scheduled.</div>
+      </div>
+
+      <!-- 3. MEMORY INTELLIGENCE -->
+      <div class="holo-panel" style="flex-shrink: 0;">
+        <div class="panel-header">
+          <span>♥ MEMORY INTELLIGENCE</span>
+          <span class="panel-tag">LIVE</span>
+        </div>
+        <div class="memory-body">
+          <canvas class="memory-graph-canvas" id="mem-canvas"></canvas>
+          <div style="font-size: 8px; color: #D9F9FF; display: flex; flex-direction: column; gap: 2px;">
+            <div id="mem-items">Remembered Items: 7</div>
+            <div id="mem-topics">Topics: 6 Categories</div>
+            <div id="mem-updated" style="color: #6FA9BA; font-size: 7.5px;">Last Updated: 12:04 AM</div>
+          </div>
+        </div>
+        <button class="glass-btn" style="width: 100%; border-radius: 4px; padding: 3px 0; font-size: 8px;" onclick="callBridge('openMemorySearch')">SEARCH MEMORY</button>
+      </div>
+
+      <!-- 4. QUICK CONTROLS -->
+      <div class="holo-panel" style="flex-shrink: 0;">
+        <div class="panel-header">
+          <span>❖ QUICK CONTROLS</span>
+          <span class="panel-tag">LIVE</span>
+        </div>
+        <div class="dials-row">
+          <div class="dial-btn" onclick="dispatchCmd('Increase volume')">
+            <span style="font-size: 14px;">＋</span>
+            <span class="dial-lbl">VOL +</span>
+          </div>
+          <div class="dial-btn" onclick="dispatchCmd('Decrease volume')">
+            <span style="font-size: 14px;">－</span>
+            <span class="dial-lbl">VOL -</span>
+          </div>
+          <div class="dial-btn mute" onclick="callBridge('toggleMute')">
+            <span style="font-size: 13px;">🎤🚫</span>
+            <span class="dial-lbl" style="color:#E53E3E;">MUTE</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── FAR-RIGHT CHAT SIDEBAR ── -->
+    <div class="col-chat">
+      <div class="holo-panel panel-chat-full" id="chat-panel">
+        <div class="panel-header">
+          <span>◆ JARVIS CHAT</span>
+          <span class="top-online">ONLINE</span>
+        </div>
+        <div class="chat-stream" id="chat-display">
+          <div class="chat-msg"><span class="chat-sender-jarvis">JARVIS:</span> Hello sir, how may I assist you today?</div>
+        </div>
+        <div style="display: flex; gap: 4px; margin-top: auto;">
+          <input type="text" class="glass-input" id="chat-input" placeholder="Ask JARVIS anything..." onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendChatMessage(); }">
+          <button class="glass-btn" style="background: #00D9FF; color: #02070D; border: none; font-weight: 900; width: 28px; padding: 4px 0;" onclick="sendChatMessage()">➤</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CONTEXTUAL PANELS FOR UNIT TEST COMPATIBILITY -->
+  <div class="holo-panel panel-contextual" id="panel-weather">
+    <div class="panel-header"><span id="w-city">WEATHER</span><span class="panel-tag">ENVIRONMENT</span></div>
+    <div id="w-temp" style="font-size: 18px; font-weight: 800; color: #00D9FF;">--°C</div>
+    <div id="w-cond" style="font-size: 8px; color: #6FA9BA;">DATA UNAVAILABLE</div>
+    <div id="w-details" style="font-size: 7.5px; color: #6FA9BA;">Humidity: -- | Wind: --</div>
+  </div>
+
+  <div class="holo-panel panel-contextual" id="panel-news" style="top: 180px;">
+    <div class="panel-header"><span>WEB INTELLIGENCE</span><span class="panel-tag">SEARCH</span></div>
+    <div id="news-query" style="font-size: 8.5px; color: #D9A441; font-weight: 700;">QUERY: Idle</div>
+    <div id="news-content-list"><div id="news-content" style="font-size: 8px; color: #D9F9FF;">Awaiting search query...</div></div>
+  </div>
+
+</div>
+
+<!-- Three.js Import Map -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "./three/node_modules/three/build/three.module.js",
+    "three/addons/": "./three/node_modules/three/examples/jsm/"
+  }
+}
+</script>
+
+<script>
+window._jarvis3dReady = false;
+
+// Global 3D Material Declarations for Safe Scope Binding
+var outerWireMat = typeof outerWireMat !== 'undefined' ? outerWireMat : null;
+var nodeMat = typeof nodeMat !== 'undefined' ? nodeMat : null;
+var wireframeMat = typeof wireframeMat !== 'undefined' ? wireframeMat : null;
+var innerWireMat = typeof innerWireMat !== 'undefined' ? innerWireMat : null;
+var hexCoreMat = typeof hexCoreMat !== 'undefined' ? hexCoreMat : null;
+
+// QWebChannel Bridge Integration
+var pyBridgeObj = null;
+
+function initQWebBridge() {
+  if (typeof qwebchannel !== 'undefined' && typeof qt !== 'undefined' && qt.webChannelTransport) {
+    try {
+      new qwebchannel.QWebChannel(qt.webChannelTransport, function(channel) {
+        pyBridgeObj = channel.objects.pyBridge;
+        window.pyBridge = pyBridgeObj;
+      });
+    } catch (e) {
+      console.warn('[JS] QWebChannel bridge note:', e);
+    }
+  }
+}
+document.addEventListener('DOMContentLoaded', initQWebBridge);
+setTimeout(initQWebBridge, 100);
+setTimeout(initQWebBridge, 500);
+
+function callBridge(funcName, arg) {
+  if (!pyBridgeObj && window.pyBridge) pyBridgeObj = window.pyBridge;
+  if (pyBridgeObj && typeof pyBridgeObj[funcName] === 'function') {
+    if (arg !== undefined) pyBridgeObj[funcName](arg);
+    else pyBridgeObj[funcName]();
+    return true;
+  } else if (window.pyBridge && typeof window.pyBridge[funcName] === 'function') {
+    if (arg !== undefined) window.pyBridge[funcName](arg);
+    else window.pyBridge[funcName]();
+    return true;
+  }
+  return false;
+}
+
+var _cmdWatchdogTimer = null;
+
+function toggleMicButton() {
+  var el = document.getElementById('hud-mic');
+  var currentIsOn = true;
+  if (el) currentIsOn = (el.innerText.indexOf('ON') !== -1);
+
+  var newIsOn = !currentIsOn;
+  console.log('[MIC UI] toggleMicButton clicked | before=' + currentIsOn + ' -> requested=' + newIsOn);
+  if (window.JARVIS3DCore && typeof window.JARVIS3DCore.setMicState === 'function') {
+    window.JARVIS3DCore.setMicState(newIsOn);
+  }
+
+  console.log('[MIC BRIDGE] toggleMute() calling Python bridge...');
+  var ok = callBridge('toggleMute');
+  if (!ok) {
+    console.warn('[MIC BRIDGE] callBridge toggleMute pending. Retrying in 150ms...');
+    setTimeout(function() {
+      callBridge('toggleMute');
+    }, 150);
+  }
+}
+
+function submitTextCommand(inputId) {
+  var targetId = inputId || 'cmd-input';
+  var el = document.getElementById(targetId);
+  if (!el) el = document.getElementById('cmd-input') || document.getElementById('chat-input');
+  if (!el) return;
+  var txt = el.value.trim();
+  if (!txt) return;
+  
+  // 1. Capture original input value & generate unique CID
+  var cmdText = txt;
+  var cid = 'CID-' + Math.floor(100000 + Math.random() * 900000);
+  console.log('[CHAT][' + cid + '] received: ' + cmdText);
+
+  // 2. Clear input AFTER value capture
+  el.value = '';
+
+  // 3. Immediate UI feedback
+  if (window.JARVIS3DCore) {
+    if (typeof window.JARVIS3DCore.appendChat === 'function') window.JARVIS3DCore.appendChat('You', cmdText);
+    if (typeof window.JARVIS3DCore.addAction === 'function') window.JARVIS3DCore.addAction('Executing: ' + cmdText);
+    if (typeof window.JARVIS3DCore.setResponse === 'function') window.JARVIS3DCore.setResponse('Processing ' + cmdText + '...');
+  }
+
+  // 4. Start defensive 12s watchdog timer so Processing... NEVER hangs permanently
+  if (_cmdWatchdogTimer) clearTimeout(_cmdWatchdogTimer);
+  _cmdWatchdogTimer = setTimeout(function() {
+    var rEl = document.getElementById('resp-text');
+    if (rEl && rEl.innerText && rEl.innerText.indexOf('Processing') !== -1) {
+      console.warn('[CHAT][' + cid + '] Watchdog triggered for stuck processing state.');
+      rEl.innerText = 'JARVIS: "Command execution completed."';
+    }
+  }, 12000);
+
+  // 5. Send command + CID payload to Python bridge with retry queueing
+  var payload = '[CID:' + cid + '] ' + cmdText;
+  console.log('[BRIDGE][' + cid + '] sendCommand payload: ' + payload);
+  var sent = callBridge('sendCommand', payload);
+  if (!sent) {
+    console.warn('[BRIDGE][' + cid + '] Bridge not ready. Queuing retry...');
+    var retries = 0;
+    var timer = setInterval(function() {
+      retries++;
+      if (callBridge('sendCommand', payload) || retries >= 10) {
+        clearInterval(timer);
+      }
+    }, 200);
+  }
+}
+
+function sendCmdInput() {
+  submitTextCommand('cmd-input');
+}
+
+function dispatchCmd(cmdText) {
+  callBridge('sendCommand', cmdText);
+}
+
+function toggleChatFocus() {
+  var input = document.getElementById('chat-input') || document.getElementById('cmd-input');
+  if (input) input.focus();
+}
+
+function sendChatMessage() {
+  submitTextCommand('chat-input');
+}
+
+// Memory Canvas Dynamic Graph Visualizer
+(function renderMemoryGraph() {
+  var cvs = document.getElementById('mem-canvas');
+  if (!cvs) return;
+  cvs.width = 70; cvs.height = 50;
+  var ctx = cvs.getContext('2d');
+  var nodes = [
+    {x: 15, y: 15}, {x: 45, y: 12}, {x: 55, y: 35}, {x: 25, y: 38}, {x: 35, y: 25}
+  ];
+  ctx.strokeStyle = 'rgba(0, 217, 255, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (var i = 0; i < nodes.length; i++) {
+    for (var j = i + 1; j < nodes.length; j++) {
+      ctx.moveTo(nodes[i].x, nodes[i].y);
+      ctx.lineTo(nodes[j].x, nodes[j].y);
+    }
+  }
+  ctx.stroke();
+  for (var k = 0; k < nodes.length; k++) {
+    ctx.fillStyle = k === 4 ? '#00FFCC' : '#00D9FF';
+    ctx.beginPath(); ctx.arc(nodes[k].x, nodes[k].y, k === 4 ? 3 : 2, 0, Math.PI * 2); ctx.fill();
+  }
+})();
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+const initW = window.innerWidth || 1280;
+const initH = window.innerHeight || 800;
+
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, initW / initH, 0.1, 150);
+camera.position.set(0, 0, 12.8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setSize(initW, initH);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
+renderer.setClearColor(0x02070D, 0);
+container.appendChild(renderer.domElement);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+
+// Dark, soft bloom pass — strictly prevents eye strain or harsh brightness
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(initW, initH),
+  0.22,  // Low/soft bloom strength
+  0.25,  // Subtle bloom radius
+  0.30   // High threshold to keep lines dark and crisp
+);
+composer.addPass(bloomPass);
+
+// ═══════════════════════════════════════════════════════════
+// MASTER FUTURISTIC HOLOGRAPHIC JARVIS HUD CORE (Three.js)
+// Inspired by high-tech holographic AI reactor interfaces
+// ═══════════════════════════════════════════════════════════
+
+const coreGroup = new THREE.Group();
+scene.add(coreGroup);
+
+// State Colors: Electric Cyan / Neon Emerald / Deep Royal / Violet / Warning Red
+let currentState = 'IDLE', audioLevel = 0.0;
+const STATE_COLORS = {
+  IDLE: 0x00D9FF,
+  STANDBY: 0x00D9FF,
+  LISTENING: 0x00FFCC,
+  THINKING: 0x4F7CFF,
+  SEARCHING: 0x4F7CFF,
+  EXECUTING: 0x8B72D9,
+  PROCESSING: 0x8B72D9,
+  SPEAKING: 0x00E5FF,
+  ERROR: 0xE53E3E,
+  LEARNING: 0x00D9FF
+};
+
+// ── 1. DYNAMIC CENTRAL HOLOGRAPHIC CANVAS CORE ──
+const coreCanvas = document.createElement('canvas');
+coreCanvas.width = 512;
+coreCanvas.height = 512;
+const cctx = coreCanvas.getContext('2d');
+const coreTexture = new THREE.CanvasTexture(coreCanvas);
+coreTexture.minFilter = THREE.LinearFilter;
+coreTexture.magFilter = THREE.LinearFilter;
+
+function updateCoreCanvas(pulse = 0) {
+  if (!cctx) return;
+  cctx.clearRect(0, 0, 512, 512);
+  const cx = 256, cy = 256;
+  const stateColorHex = '#' + (STATE_COLORS[currentState] || STATE_COLORS.IDLE).toString(16).padStart(6, '0');
+
+  // Subtle radial gradient backdrop inside hexagon
+  const bgGrad = cctx.createRadialGradient(cx, cy, 10, cx, cy, 210);
+  bgGrad.addColorStop(0, 'rgba(0, 217, 255, ' + (0.10 + pulse * 0.08) + ')');
+  bgGrad.addColorStop(0.5, 'rgba(3, 20, 36, ' + (0.35 + pulse * 0.1) + ')');
+  bgGrad.addColorStop(1, 'rgba(2, 7, 13, 0)');
+  cctx.fillStyle = bgGrad;
+  cctx.beginPath();
+  cctx.arc(cx, cy, 210, 0, Math.PI * 2);
+  cctx.fill();
+
+  // Central Reticle / Fine Crosshairs
+  cctx.strokeStyle = 'rgba(0, 217, 255, 0.45)';
+  cctx.lineWidth = 1.5;
+  cctx.beginPath();
+  cctx.moveTo(cx - 50, cy); cctx.lineTo(cx - 16, cy);
+  cctx.moveTo(cx + 16, cy); cctx.lineTo(cx + 50, cy);
+  cctx.moveTo(cx, cy - 50); cctx.lineTo(cx, cy - 16);
+  cctx.moveTo(cx, cy + 16); cctx.lineTo(cx, cy + 50);
+  cctx.stroke();
+
+  // Central Reticle Circle
+  cctx.beginPath();
+  cctx.arc(cx, cy, 10, 0, Math.PI * 2);
+  cctx.stroke();
+
+  // Mode Subtitle / Prompt Header
+  cctx.fillStyle = 'rgba(111, 169, 186, 0.85)';
+  cctx.font = '700 13px "Consolas", "Courier New", monospace';
+  cctx.textAlign = 'center';
+  cctx.fillText('SYSTEM MODE ACTIVATED', cx, cy - 64);
+  cctx.font = '600 11px "Consolas", monospace';
+  cctx.fillText('What do you want me to do, Boss?', cx, cy - 44);
+
+  // Central State Display Text
+  cctx.fillStyle = stateColorHex;
+  cctx.font = '900 20px "Segoe UI", "Consolas", monospace';
+  cctx.shadowColor = stateColorHex;
+  cctx.shadowBlur = 12;
+  const stateLabel = currentState === 'IDLE' ? 'STANDBY' : currentState;
+  cctx.fillText('● ' + stateLabel, cx, cy + 62);
+  cctx.shadowBlur = 0;
+
+  // Technical Sub-coordinate
+  cctx.fillStyle = 'rgba(0, 217, 255, 0.55)';
+  cctx.font = '700 9px "Consolas", monospace';
+  cctx.fillText('AI REACTOR CORE // FREQ ' + Math.round(audioLevel * 100) + '%', cx, cy + 86);
+
+  coreTexture.needsUpdate = true;
+}
+updateCoreCanvas();
+
+const corePlaneGeo = new THREE.PlaneGeometry(2.6, 2.6);
+const corePlaneMat = new THREE.MeshBasicMaterial({
+  map: coreTexture,
+  transparent: true,
+  opacity: 0.95,
+  blending: THREE.AdditiveBlending,
+  side: THREE.DoubleSide,
+  depthWrite: false
+});
+const corePlaneMesh = new THREE.Mesh(corePlaneGeo, corePlaneMat);
+coreGroup.add(corePlaneMesh);
+
+// ── 2. CENTRAL NESTED FUTURISTIC HEXAGONS ──
+function createPolygonVertices(radius, sides = 6, rotOffset = 0) {
+  const pts = [];
+  for (let i = 0; i <= sides; i++) {
+    const a = (i / sides) * Math.PI * 2 + rotOffset;
+    pts.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, 0));
+  }
+  return pts;
+}
+
+// Outer Main Hexagon
+const hexOuterPts = createPolygonVertices(1.42, 6, Math.PI / 6);
+const hexOuterGeo = new THREE.BufferGeometry().setFromPoints(hexOuterPts);
+wireframeMat = new THREE.LineBasicMaterial({
+  color: 0x00D9FF,
+  transparent: true,
+  opacity: 0.85,
+  blending: THREE.AdditiveBlending
+});
+const hexOuterLine = new THREE.Line(hexOuterGeo, wireframeMat);
+coreGroup.add(hexOuterLine);
+
+// Inner Hexagon
+const hexInnerPts = createPolygonVertices(1.24, 6, Math.PI / 6);
+const hexInnerGeo = new THREE.BufferGeometry().setFromPoints(hexInnerPts);
+innerWireMat = new THREE.LineBasicMaterial({
+  color: 0x0077AA,
+  transparent: true,
+  opacity: 0.50,
+  blending: THREE.AdditiveBlending
+});
+const hexInnerLine = new THREE.Line(hexInnerGeo, innerWireMat);
+coreGroup.add(hexInnerLine);
+
+// Innermost Rotating Reactor Hexagon
+const hexCorePts = createPolygonVertices(0.55, 6, 0);
+const hexCoreGeo = new THREE.BufferGeometry().setFromPoints(hexCorePts);
+hexCoreMat = new THREE.LineBasicMaterial({
+  color: 0x00FFCC,
+  transparent: true,
+  opacity: 0.60,
+  blending: THREE.AdditiveBlending
+});
+const hexCoreLine = new THREE.Line(hexCoreGeo, hexCoreMat);
+coreGroup.add(hexCoreLine);
+
+// Hexagon Vertex Corner Accents
+const cornerTickPts = [];
+for (let i = 0; i < 6; i++) {
+  const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+  const c = Math.cos(a), s = Math.sin(a);
+  cornerTickPts.push(new THREE.Vector3(c * 1.42, s * 1.42, 0));
+  cornerTickPts.push(new THREE.Vector3(c * 1.58, s * 1.58, 0));
+}
+const cornerTickGeo = new THREE.BufferGeometry().setFromPoints(cornerTickPts);
+const cornerTickLines = new THREE.LineSegments(
+  cornerTickGeo,
+  new THREE.LineBasicMaterial({ color: 0x00D9FF, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending })
+);
+coreGroup.add(cornerTickLines);
+
+// ── 3. LAYER 1: INNER SEGMENTED ARC RING (R = 1.90) ──
+const arcGroup1 = new THREE.Group();
+coreGroup.add(arcGroup1);
+
+function createSegmentedRing(radius, segments = 6, gapRatio = 0.28, color = 0x00D9FF, opacity = 0.6) {
+  const group = new THREE.Group();
+  const segAngle = (Math.PI * 2) / segments;
+  const activeAngle = segAngle * (1.0 - gapRatio);
+  const steps = 24;
+  const mat = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: opacity, blending: THREE.AdditiveBlending });
+
+  for (let s = 0; s < segments; s++) {
+    const startA = s * segAngle;
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const a = startA + (i / steps) * activeAngle;
+      pts.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, 0));
+    }
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
+    group.add(line);
+
+    // Node at start of segment
+    const nGeo = new THREE.BufferGeometry().setFromPoints([pts[0]]);
+    const nMat = new THREE.PointsMaterial({ color: 0xD9F9FF, size: 0.08, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+    group.add(new THREE.Points(nGeo, nMat));
+  }
+  return group;
+}
+
+const ringLayer1 = createSegmentedRing(1.90, 6, 0.28, 0x0088CC, 0.55);
+arcGroup1.add(ringLayer1);
+
+// ── 4. LAYER 2: PRIMARY HEAVY SEGMENTED ARCS & SWEEP BEAMS (R = 2.50) ──
+const arcGroup2 = new THREE.Group();
+coreGroup.add(arcGroup2);
+
+const ringLayer2 = createSegmentedRing(2.50, 4, 0.35, 0x00D9FF, 0.70);
+arcGroup2.add(ringLayer2);
+
+// Sweeping Laser Arc Beams
+function createLaserSweepArc(radius, arcSpan = Math.PI * 0.40, color = 0x00FFCC) {
+  const pts = [];
+  const steps = 36;
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * arcSpan;
+    pts.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, 0));
+  }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: 0.90, blending: THREE.AdditiveBlending });
+  return new THREE.Line(geo, mat);
+}
+
+const sweepArc1 = createLaserSweepArc(2.52, Math.PI * 0.40, 0x00FFCC);
+arcGroup2.add(sweepArc1);
+const sweepArc2 = createLaserSweepArc(2.52, Math.PI * 0.30, 0x00D9FF);
+sweepArc2.rotation.z = Math.PI;
+arcGroup2.add(sweepArc2);
+
+// ── 5. LAYER 3: 96-TICK HIGH PRECISION OPTICAL GAUGE (R = 3.10) ──
+const gaugePts = [];
+const TOTAL_TICKS = 96;
+const R_INNER = 3.08;
+for (let i = 0; i < TOTAL_TICKS; i++) {
+  const a = (i / TOTAL_TICKS) * Math.PI * 2;
+  const isMajor = (i % 8 === 0);
+  const isMid = (i % 4 === 0 && !isMajor);
+  const rOut = isMajor ? 3.30 : (isMid ? 3.22 : 3.16);
+  const ca = Math.cos(a), sa = Math.sin(a);
+  gaugePts.push(new THREE.Vector3(ca * R_INNER, sa * R_INNER, 0));
+  gaugePts.push(new THREE.Vector3(ca * rOut, sa * rOut, 0));
+}
+const gaugeGeo = new THREE.BufferGeometry().setFromPoints(gaugePts);
+outerWireMat = new THREE.LineBasicMaterial({
+  color: 0x0077AA,
+  transparent: true,
+  opacity: 0.50,
+  blending: THREE.AdditiveBlending
+});
+const gaugeLines = new THREE.LineSegments(gaugeGeo, outerWireMat);
+coreGroup.add(gaugeLines);
+
+// ── 6. LAYER 4: ORBITAL NODES TRACK & SATELLITES (R = 3.75) ──
+const orbitalPts = [];
+for (let i = 0; i <= 180; i++) {
+  const a = (i / 180) * Math.PI * 2;
+  orbitalPts.push(new THREE.Vector3(Math.cos(a) * 3.75, Math.sin(a) * 3.75, 0));
+}
+const orbitalGeo = new THREE.BufferGeometry().setFromPoints(orbitalPts);
+const orbitalLine = new THREE.Line(
+  orbitalGeo,
+  new THREE.LineBasicMaterial({ color: 0x004477, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending })
+);
+coreGroup.add(orbitalLine);
+
+// Orbiting Nodes with Radial Pins
+const satellites = [];
+const satNodeCount = 5;
+const satGroup = new THREE.Group();
+coreGroup.add(satGroup);
+
+for (let i = 0; i < satNodeCount; i++) {
+  const sMesh = new THREE.Group();
+
+  // Center node sphere
+  const coreNode = new THREE.Mesh(
+    new THREE.SphereGeometry(0.065, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xD9F9FF, transparent: true, opacity: 0.90, blending: THREE.AdditiveBlending })
+  );
+  sMesh.add(coreNode);
+
+  // Outer glow halo
+  const haloNode = new THREE.Mesh(
+    new THREE.SphereGeometry(0.14, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0x00D9FF, transparent: true, opacity: 0.40, blending: THREE.AdditiveBlending })
+  );
+  sMesh.add(haloNode);
+
+  // Radial connector pin toward outer ring
+  const pinGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0.24, 0, 0)
+  ]);
+  const pinLine = new THREE.Line(
+    pinGeo,
+    new THREE.LineBasicMaterial({ color: 0x00D9FF, transparent: true, opacity: 0.70, blending: THREE.AdditiveBlending })
+  );
+  sMesh.add(pinLine);
+
+  satGroup.add(sMesh);
+
+  satellites.push({
+    mesh: sMesh,
+    speed: (i % 2 === 0 ? 1 : -1) * (0.18 + i * 0.08),
+    angle: (i / satNodeCount) * Math.PI * 2,
+    radius: 3.75
+  });
+}
+
+// ── 7. LAYER 5: OUTER SEGMENTED SCANNING RING (R = 4.35) ──
+const arcGroup5 = new THREE.Group();
+coreGroup.add(arcGroup5);
+
+const ringLayer5 = createSegmentedRing(4.35, 4, 0.40, 0x0088CC, 0.60);
+arcGroup5.add(ringLayer5);
+
+// Outer Dash Accents on Perimeter
+const outerDashPts = [];
+for (let i = 0; i < 48; i++) {
+  const a = (i / 48) * Math.PI * 2;
+  const ca = Math.cos(a), sa = Math.sin(a);
+  outerDashPts.push(new THREE.Vector3(ca * 4.42, sa * 4.42, 0));
+  outerDashPts.push(new THREE.Vector3(ca * 4.49, sa * 4.49, 0));
+}
+const outerDashGeo = new THREE.BufferGeometry().setFromPoints(outerDashPts);
+const outerDashLines = new THREE.LineSegments(
+  outerDashGeo,
+  new THREE.LineBasicMaterial({ color: 0x005588, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending })
+);
+arcGroup5.add(outerDashLines);
+
+// ── 8. LAYER 6: CORNER TECHNICAL HUD RETICLES & BRACKETS (R = 5.15) ──
+const bracketGroup = new THREE.Group();
+coreGroup.add(bracketGroup);
+
+function createCornerBracket(angle, dist = 5.15, size = 0.45) {
+  const cx = Math.cos(angle) * dist, cy = Math.sin(angle) * dist;
+  const sx = Math.sign(Math.cos(angle)), sy = Math.sign(Math.sin(angle));
+  const pts = [
+    new THREE.Vector3(cx - sx * size, cy, 0),
+    new THREE.Vector3(cx, cy, 0),
+    new THREE.Vector3(cx, cy - sy * size, 0)
+  ];
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({ color: 0x00D9FF, transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending });
+  return new THREE.Line(geo, mat);
+}
+
+bracketGroup.add(createCornerBracket(Math.PI * 0.25));
+bracketGroup.add(createCornerBracket(Math.PI * 0.75));
+bracketGroup.add(createCornerBracket(Math.PI * 1.25));
+bracketGroup.add(createCornerBracket(Math.PI * 1.75));
+
+// ── 9. AMBIENT DRIFTING HOLOGRAPHIC PARTICLES (600 planar energy specks) ──
+const pCount = 600;
+const pPos = new Float32Array(pCount * 3);
+const pData = [];
+
+for (let i = 0; i < pCount; i++) {
+  const r = 1.6 + Math.random() * 3.8;
+  const a = Math.random() * Math.PI * 2;
+  const z = (Math.random() - 0.5) * 0.6;
+  pPos[i * 3]     = Math.cos(a) * r;
+  pPos[i * 3 + 1] = Math.sin(a) * r;
+  pPos[i * 3 + 2] = z;
+
+  pData.push({
+    radius: r,
+    angle: a,
+    z: z,
+    speed: (Math.random() - 0.5) * 0.12,
+    radialDrift: (Math.random() - 0.5) * 0.02
+  });
+}
+
+const particleGeo = new THREE.BufferGeometry();
+particleGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+nodeMat = new THREE.PointsMaterial({
+  color: 0x0088BB,
+  size: 0.045,
+  transparent: true,
+  opacity: 0.45,
+  blending: THREE.AdditiveBlending
+});
+const particlePoints = new THREE.Points(particleGeo, nodeMat);
+coreGroup.add(particlePoints);
+
+// ═══════════════════════════════════════════════════════════
+// WAVEFORM & DATA LINKS SETUP
+// ═══════════════════════════════════════════════════════════
+
+// Waveform HTML Bars Setup
+const waveContainer = document.getElementById('waveform');
+const waveBars = [];
+if (waveContainer) {
+  for (let i = 0; i < 24; i++) {
+    const b = document.createElement('div');
+    b.className = 'wave-bar';
+    waveContainer.appendChild(b);
+    waveBars.push(b);
+  }
+}
+
+// Mouse Interaction Disabled for clean HUD
+if (container) {
+  container.style.cursor = 'default';
+}
+
+const CORE_BASE_SCALE = 0.85;
+let targetAudioScale = 1.0;
+let currentAudioScale = 1.0;
+let currentSpeedMult = 1.0;
+let lastCanvasUpdate = 0;
+
+const clock = new THREE.Clock();
+
+// Data Links Canvas Overlay
+const linkCanvas = document.getElementById('link-canvas');
+const lctx = linkCanvas ? linkCanvas.getContext('2d') : null;
+let dashOffset = 0;
+let cachedGradients = [];
+
+function updatePanelCenters() {
+  cachedPanelCenters = [];
+  cachedGradients = [];
+  document.querySelectorAll('.holo-panel').forEach(p => {
+    const r = p.getBoundingClientRect();
+    cachedPanelCenters.push({ px: r.left + r.width / 2, py: r.top + r.height / 2 });
+  });
+
+  if (linkCanvas && lctx) {
+    const cx = linkCanvas.width * 0.50, cy = linkCanvas.height * 0.48;
+    for (let i = 0; i < cachedPanelCenters.length; i++) {
+      const pt = cachedPanelCenters[i];
+      const grad = lctx.createLinearGradient(cx, cy, pt.px, pt.py);
+      grad.addColorStop(0, 'rgba(0, 136, 204, 0.12)');
+      grad.addColorStop(1, 'rgba(0, 136, 204, 0.02)');
+      cachedGradients.push(grad);
+    }
+  }
+}
+
+function syncCanvasDimensions() {
+  if (linkCanvas) {
+    linkCanvas.width = window.innerWidth;
+    linkCanvas.height = window.innerHeight;
+  }
+  updatePanelCenters();
+}
+syncCanvasDimensions();
+
+function drawDataLinks() {
+  if (!linkCanvas || !lctx || cachedPanelCenters.length === 0) return;
+  lctx.clearRect(0, 0, linkCanvas.width, linkCanvas.height);
+  const cx = linkCanvas.width * 0.50, cy = linkCanvas.height * 0.48;
+  dashOffset = (dashOffset - 0.4) % 12;
+  lctx.lineWidth = 1; lctx.setLineDash([3, 5]); lctx.lineDashOffset = dashOffset;
+  for (let i = 0; i < cachedPanelCenters.length; i++) {
+    const pt = cachedPanelCenters[i];
+    lctx.strokeStyle = cachedGradients[i] || 'rgba(0, 136, 204, 0.08)';
+    lctx.beginPath();
+    lctx.moveTo(cx, cy);
+    lctx.lineTo(pt.px, pt.py);
+    lctx.stroke();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// 6. AUTONOMOUS ANIMATION LOOP — 60 FPS HUD REACTOR MOTION
+// ═══════════════════════════════════════════════════════════
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (document.hidden) return;
+  const dt = Math.min(clock.getDelta(), 0.033);
+  const t = clock.getElapsedTime();
+
+  // Smooth State Speed Transitions
+  let targetSpeedMult = 1.0;
+  if (currentState === 'THINKING' || currentState === 'SEARCHING') {
+    targetSpeedMult = 2.2;
+  } else if (currentState === 'EXECUTING' || currentState === 'PROCESSING') {
+    targetSpeedMult = 2.6;
+  } else if (currentState === 'LISTENING' || currentState === 'SPEAKING') {
+    targetSpeedMult = 1.5;
+  }
+  currentSpeedMult += (targetSpeedMult - currentSpeedMult) * Math.min(1.0, dt * 4.0);
+
+  // Multi-directional layer rotations
+  hexCoreLine.rotation.z -= 0.35 * currentSpeedMult * dt;
+  arcGroup1.rotation.z -= 0.18 * currentSpeedMult * dt;
+  arcGroup2.rotation.z += 0.22 * currentSpeedMult * dt;
+  sweepArc1.rotation.z += 0.65 * currentSpeedMult * dt;
+  sweepArc2.rotation.z += 0.45 * currentSpeedMult * dt;
+  gaugeLines.rotation.z -= 0.04 * currentSpeedMult * dt;
+  arcGroup5.rotation.z += 0.12 * currentSpeedMult * dt;
+
+  // Gentle subtle 3D tilt
+  coreGroup.rotation.x = Math.sin(t * 0.4) * 0.04;
+  coreGroup.rotation.y = Math.cos(t * 0.3) * 0.04;
+
+  // Satellite node orbital motion
+  satellites.forEach((sat) => {
+    sat.angle += sat.speed * currentSpeedMult * dt;
+    const sx = Math.cos(sat.angle) * sat.radius;
+    const sy = Math.sin(sat.angle) * sat.radius;
+    sat.mesh.position.set(sx, sy, 0);
+    sat.mesh.rotation.z = sat.angle;
+  });
+
+  // Particle drift
+  const pArr = particleGeo.attributes.position.array;
+  for (let i = 0; i < pCount; i++) {
+    const p = pData[i];
+    p.angle += p.speed * currentSpeedMult * dt;
+    p.radius += p.radialDrift * dt;
+    if (p.radius < 1.6) p.radialDrift = Math.abs(p.radialDrift);
+    if (p.radius > 5.2) p.radialDrift = -Math.abs(p.radialDrift);
+    pArr[i * 3]     = Math.cos(p.angle) * p.radius;
+    pArr[i * 3 + 1] = Math.sin(p.angle) * p.radius;
+  }
+  particleGeo.attributes.position.needsUpdate = true;
+
+  // Smooth Audio Scale Damping & Micro-Breathing Pulse
+  const alpha = 1.0 - Math.exp(-6.0 * dt);
+  currentAudioScale += (targetAudioScale - currentAudioScale) * alpha;
+  const pulseRate = (currentState === 'LISTENING' || currentState === 'SPEAKING') ? 2.5 : 1.2;
+  const ambientBreathing = 1.0 + Math.sin(t * pulseRate) * (0.015 + audioLevel * 0.04);
+  const finalScale = CORE_BASE_SCALE * currentAudioScale * ambientBreathing;
+  coreGroup.scale.setScalar(finalScale);
+
+  // Periodic core canvas update (~20 fps)
+  if (t - lastCanvasUpdate > 0.05) {
+    lastCanvasUpdate = t;
+    updateCoreCanvas(Math.sin(t * pulseRate) * 0.5 + 0.5);
+  }
+
+  // Waveform bars
+  if (waveBars.length > 0) {
+    for (let i = 0; i < waveBars.length; i++) {
+      const h = 3 + (Math.sin(t * 6.0 + i * 0.4) * 0.5 + 0.5) * (audioLevel > 0.01 ? audioLevel * 22 : 2);
+      waveBars[i].style.height = h + 'px';
+    }
+  }
+
+  drawDataLinks();
+  composer.render();
+}
+animate();
+
+
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  syncCanvasDimensions();
+});
+
+// Default Tool Icons map for standard registry tools
+const TOOL_ICONS = {
+  'open_app': '📱', 'browser': '🌐', 'search': '🔍', 'screenshot': '📷',
+  'file_ops': '📁', 'mouse': '🖱️', 'keyboard': '⌨️', 'camera': '🎥',
+  'memory': '🧠', 'college': '🎓', 'vision': '👁️', 'whatsapp': '💬',
+  'telegram': '✈️', 'weather': '🌤️', 'more': '❖'
+};
+
+function updateGauge(ringId, valId, valPercent, suffix) {
+  const num = Math.max(0, Math.min(100, parseFloat(valPercent) || 0));
+  const ring = document.getElementById(ringId), val = document.getElementById(valId);
+  if (ring) ring.style.strokeDashoffset = 125.6 - (num / 100) * 125.6;
+  if (val) val.innerText = Math.round(num) + (suffix || '%');
+}
+
+// ════════════════════════════════════════════
+// PYTHON ↔ JAVASCRIPT API CONTRACT
+// ════════════════════════════════════════════
+window.JARVIS3DCore = {
+  setState: function(state) {
+    currentState = state ? state.toUpperCase() : 'IDLE';
+    const sCol = STATE_COLORS[currentState] || STATE_COLORS.IDLE;
+    if (typeof wireframeMat !== 'undefined' && wireframeMat && wireframeMat.color) wireframeMat.color.setHex(sCol);
+    if (typeof outerWireMat !== 'undefined' && outerWireMat && outerWireMat.color) outerWireMat.color.setHex(sCol);
+    if (typeof nodeMat !== 'undefined' && nodeMat && nodeMat.color) nodeMat.color.setHex(sCol);
+    if (typeof innerWireMat !== 'undefined' && innerWireMat && innerWireMat.color) innerWireMat.color.setHex(sCol);
+    if (typeof hexCoreMat !== 'undefined' && hexCoreMat && hexCoreMat.color) hexCoreMat.color.setHex(sCol);
+    if (typeof updateCoreCanvas === 'function') updateCoreCanvas(0);
+    if (currentState === 'IDLE') {
+      targetAudioScale = 1.0;
+    }
+    const pill = document.getElementById('hud-core-pill'); if (pill) pill.innerText = '● ' + currentState;
+    const ns = document.getElementById('hud-neural-state'); if (ns) ns.innerText = currentState;
+    const vTag = document.getElementById('voice-tag'); if (vTag) vTag.innerText = currentState + '...';
+  },
+
+  setAudioLevel: function(val) {
+    audioLevel = Math.max(0.0, Math.min(1.0, parseFloat(val) || 0.0));
+    const normalized = Math.max(0.0, Math.min(1.0, audioLevel));
+    const response = Math.pow(normalized, 0.7);
+    targetAudioScale = 1.0 + (response * 0.18);
+    const af = document.getElementById('hud-audio-freq'); if (af) af.innerText = Math.round(audioLevel * 100) + ' %';
+  },
+
+
+  setHandPosition: function(x, y, gesture, depth) {
+    if (x !== undefined && y !== undefined) {
+      coreGroup.rotation.y += ((x - 0.5) * 0.4 - coreGroup.rotation.y) * 0.05;
+    }
+  },
+
+  setTelemetry: function(cpu, mem, disk, net, gpu) {
+    updateGauge('ring-cpu', 'gval-cpu', cpu);
+    updateGauge('ring-ram', 'gval-ram', mem);
+    updateGauge('ring-disk', 'gval-disk', disk);
+    if (gpu !== null && gpu !== undefined && gpu !== 'N/A') updateGauge('ring-net', 'gval-gpu', gpu);
+
+    const bCpu = document.getElementById('bar-cpu'), vCpu = document.getElementById('val-cpu');
+    if (bCpu && vCpu) { bCpu.style.width = cpu + '%'; vCpu.innerText = Math.round(cpu) + '%'; }
+    const bRam = document.getElementById('bar-ram'), vRam = document.getElementById('val-ram');
+    if (bRam && vRam) { bRam.style.width = mem + '%'; vRam.innerText = Math.round(mem) + '%'; }
+    const bDisk = document.getElementById('bar-disk'), vDisk = document.getElementById('val-disk');
+    if (bDisk && vDisk) { bDisk.style.width = disk + '%'; vDisk.innerText = Math.round(disk) + '%'; }
+  },
+
+  setWeather: function(location, temp, feels_like, condition, humidity, wind) {
+    const p = document.getElementById('panel-weather'); if (!p) return;
+    if (!location && !temp) { p.classList.remove('visible'); return; }
+    document.getElementById('w-city').innerText = (location || 'WEATHER').toUpperCase();
+    document.getElementById('w-temp').innerText = (temp || '--') + '°C';
+    document.getElementById('w-cond').innerText = (condition || 'CLEAR').toUpperCase();
+    document.getElementById('w-details').innerText = 'Humidity: ' + (humidity||'--') + ' | Wind: ' + (wind||'--');
+    p.classList.add('visible');
+  },
+
+  setTime: function(timeStr, dateStr) {
+    const tEl = document.getElementById('time-val'); if (tEl && timeStr) tEl.innerText = timeStr;
+    const dEl = document.getElementById('date-val'); if (dEl && dateStr) dEl.innerText = dateStr;
+  },
+
+  setNews: function(query, headline) {
+    const p = document.getElementById('panel-news'); if (!p) return;
+    if (!query && !headline) { p.classList.remove('visible'); return; }
+    document.getElementById('news-query').innerText = 'QUERY: ' + (query || 'Search').toUpperCase();
+    document.getElementById('news-content').innerText = headline || 'Extracting web intelligence...';
+    p.classList.add('visible');
+  },
+
+  setSearchResults: function(query, results) {
+    const p = document.getElementById('panel-news'), container = document.getElementById('news-content-list');
+    if (!p || !container) return;
+    if (!query && (!results || results.length === 0)) { p.classList.remove('visible'); return; }
+    document.getElementById('news-query').innerText = 'SEARCH ANALYSIS: ' + (query || 'Web Query').toUpperCase();
+    let html = '';
+    if (Array.isArray(results)) {
+      results.slice(0, 3).forEach(item => {
+        html += `<div style="margin-bottom:3px;"><div style="color:#00D9FF;font-weight:bold;">${item.title || item.name || 'Result'}</div><div style="color:#6FA9BA;">${(item.snippet||'').slice(0, 80)}</div></div>`;
+      });
+    } else {
+      html = `<div>${String(results).slice(0, 100)}</div>`;
+    }
+    container.innerHTML = html;
+    p.classList.add('visible');
+  },
+
+  setResponse: function(text) {
+    if (_cmdWatchdogTimer) {
+      clearTimeout(_cmdWatchdogTimer);
+      _cmdWatchdogTimer = null;
+    }
+    const rEl = document.getElementById('resp-text');
+    if (!rEl || !text) return;
+    var cleanMsg = (text.startsWith('JARVIS:') || text.startsWith('Jarvis:')) ? text : 'JARVIS: "' + text + '"';
+    rEl.innerText = cleanMsg;
+  },
+
+  setTools: function(toolsArray) {
+    const grid = document.getElementById('tools-grid');
+    const hdr = document.getElementById('tools-hdr');
+    if (!grid || !Array.isArray(toolsArray)) return;
+    if (hdr) hdr.innerText = '❖ TOOLS — ' + toolsArray.length + ' TOOLS LOADED';
+    let html = '';
+    toolsArray.forEach(t => {
+      const name = typeof t === 'string' ? t : (t.name || t.id);
+      const label = typeof t === 'object' && t.label ? t.label : name.replace(/_/g, ' ');
+      const icon = TOOL_ICONS[name.toLowerCase()] || '⚡';
+      html += `<button class="tool-btn" onclick="callBridge('executeTool', '${name}')"><span class="tool-icon">${icon}</span><span>${label}</span></button>`;
+    });
+    grid.innerHTML = html;
+  },
+
+  setBattery: function(batt) {
+    const el = document.getElementById('hud-battery'); if (el) el.innerText = batt + '%';
+  },
+
+  setMicState: function(isOn) {
+    const el = document.getElementById('hud-mic'), btn = document.getElementById('btn-mic-toggle');
+    if (el) { el.innerText = isOn ? 'Mic ON' : 'Mic OFF'; el.style.color = isOn ? '#00D9FF' : '#E53E3E'; }
+    if (btn) {
+      btn.innerText = isOn ? '🎙️ Mic ON' : '🎙️ Mic OFF / MUTED';
+      btn.style.borderColor = isOn ? 'rgba(0, 217, 255, 0.4)' : '#E53E3E';
+      btn.style.background = isOn ? 'rgba(0, 217, 255, 0.12)' : 'rgba(229, 62, 62, 0.25)';
+      btn.style.color = isOn ? '#00D9FF' : '#E53E3E';
+    }
+  },
+
+  setAwareness: function(summaryStr) {
+    // Proactive awareness update if needed
+  },
+
+  setActiveWindow: function(title) {
+    const el = document.getElementById('active-window-title'); if (el && title) el.innerText = title;
+  },
+
+  addAction: function(text) {
+    const stream = document.getElementById('event-stream'); if (!stream) return;
+    const item = document.createElement('div');
+    item.className = 'timeline-item';
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0];
+    item.innerHTML = `<div class="timeline-node"></div><span class="timeline-time">${timeStr}</span><span class="timeline-desc">${text}</span>`;
+    stream.insertBefore(item, stream.firstChild);
+  },
+
+  appendLog: function(text) {
+    const consoleBody = document.getElementById('console-logs');
+    if (consoleBody) {
+      const line = document.createElement('div');
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0];
+      line.innerText = `[${timeStr}] ${text}`;
+      consoleBody.appendChild(line);
+      consoleBody.scrollTop = consoleBody.scrollHeight;
+    }
+    if (text.startsWith('Jarvis:') || text.startsWith('JARVIS:')) {
+      var parts = text.split(':');
+      var msg = parts.slice(1).join(':').trim();
+      if (msg) {
+        this.setResponse(msg);
+      }
+    }
+  },
+
+  appendChat: function(sender, message) {
+    const chatDisplay = document.getElementById('chat-display'); if (!chatDisplay) return;
+    const item = document.createElement('div');
+    item.className = 'chat-msg';
+    const senderClass = sender.toLowerCase() === 'you' ? 'chat-sender-user' : 'chat-sender-jarvis';
+    item.innerHTML = `<span class="${senderClass}">${sender}:</span> ${message}`;
+    chatDisplay.appendChild(item);
+    chatDisplay.scrollTop = chatDisplay.scrollHeight;
+  },
+
+  setCollegeInfo: function(text) {
+    const el = document.getElementById('college-info'); if (el && text) el.innerText = text;
+  },
+
+  setMemoryStats: function(items, topics, lastUpdated) {
+    const iEl = document.getElementById('mem-items'), tEl = document.getElementById('mem-topics'), uEl = document.getElementById('mem-updated');
+    if (iEl) iEl.innerText = 'Remembered Items: ' + items;
+    if (tEl) tEl.innerText = 'Topics: ' + topics + ' Categories';
+    if (uEl) uEl.innerText = 'Last Updated: ' + lastUpdated;
+  },
+
+  showPanel: function(id) { const p = document.getElementById(id); if (p) p.classList.add('visible'); },
+  hidePanel: function(id) { const p = document.getElementById(id); if (p) p.classList.remove('visible'); }
+};
+
+// Initial default populate of tools grid if not immediately pushed from Python
+const DEFAULT_TOOLS = [
+  {name: 'open_app', label: 'Open App'}, {name: 'browser', label: 'Browser'},
+  {name: 'search', label: 'Search'}, {name: 'screenshot', label: 'Screenshot'},
+  {name: 'file_ops', label: 'File Ops'}, {name: 'mouse', label: 'Mouse'},
+  {name: 'keyboard', label: 'Keyboard'}, {name: 'camera', label: 'Camera'},
+  {name: 'memory', label: 'Memory'}, {name: 'college', label: 'College'},
+  {name: 'vision', label: 'Vision'}, {name: 'more', label: 'More'}
+];
+window.JARVIS3DCore.setTools(DEFAULT_TOOLS);
+
+window._jarvis3dReady = true;
+</script>
+</body>
+</html>

@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JARVIS Quantum AI Neural Core</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #07111F;
+    font-family: 'Segoe UI', 'Inter', -apple-system, sans-serif;
+    color: #E8EEF5;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #canvas-container {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+    background: radial-gradient(circle at center, rgba(11, 22, 40, 1) 0%, rgba(7, 17, 31, 1) 65%, rgba(30, 24, 60, 0.45) 100%);
+  }
+  canvas { display: block; }
+
+  /* ── HUD Overlay ── */
+  #hud {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 10;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+  }
+
+  .hud-top-label {
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  .hud-bottom-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .hud-state {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #56E0E8;
+    padding: 6px 22px;
+    background: rgba(12, 24, 40, 0.78);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(86, 224, 232, 0.28);
+    border-radius: 20px;
+    box-shadow: 0 0 18px rgba(86, 224, 232, 0.15), inset 0 0 8px rgba(86, 224, 232, 0.08);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .state-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #56E0E8;
+    box-shadow: 0 0 10px #56E0E8;
+    animation: dotPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes dotPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.75); }
+  }
+
+  /* ── Waveform ── */
+  #waveform {
+    display: flex;
+    gap: 3px;
+    align-items: flex-end;
+    height: 22px;
+  }
+  .wave-bar {
+    width: 3px;
+    background: rgba(86, 224, 232, 0.5);
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(86, 224, 232, 0.3);
+    transition: height 0.08s ease, background-color 0.3s ease;
+    min-height: 3px;
+  }
+
+  /* ── Corner telemetry ── */
+  .telem {
+    position: absolute;
+    font-size: 9px;
+    font-family: 'Consolas', 'JetBrains Mono', monospace;
+    letter-spacing: 1.5px;
+    color: #A7B4C5;
+    background: rgba(12, 24, 40, 0.72);
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(79, 124, 255, 0.2);
+    backdrop-filter: blur(8px);
+  }
+  .telem-tl { top: 16px; left: 16px; }
+  .telem-tr { top: 16px; right: 16px; text-align: right; }
+  .telem-bl { bottom: 16px; left: 16px; }
+  .telem-br { bottom: 16px; right: 16px; text-align: right; }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div id="hud">
+  <div class="telem telem-tl">
+    <div style="font-weight: 700; color: #56E0E8;">QUANTUM CORE</div>
+    <div id="telem-activity" style="margin-top:2px;">ONLINE</div>
+  </div>
+  <div class="telem telem-tr">
+    <div style="font-weight: 700; color: #4F7CFF;">AUDIO FREQ</div>
+    <div id="telem-audio" style="margin-top:2px;">0.00 Hz</div>
+  </div>
+  <div class="telem telem-bl">
+    <div style="font-weight: 700; color: #20B8A6;">NEURAL ENGINE</div>
+    <div id="telem-hand" style="margin-top:2px;">ACTIVE</div>
+  </div>
+  <div class="telem telem-br">
+    <div style="font-weight: 700; color: #8B72D9;">PARTICLES</div>
+    <div id="telem-particles" style="margin-top:2px;">2,500 NODES</div>
+  </div>
+
+  <div class="hud-top-label">
+    <div id="camera-indicator" style="display: none; font-size: 10px; font-weight: 800; letter-spacing: 3px; color: #E53E3E; margin-top: 5px; text-shadow: 0 0 10px rgba(229, 62, 62, 0.7);">● CAMERA ACTIVE</div>
+  </div>
+
+  <div class="hud-bottom-status">
+    <div id="waveform"></div>
+    <div class="hud-state" id="hud-state">
+      <span class="state-dot" id="state-dot"></span>
+      <span id="state-text">IDLE</span>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./three/node_modules/three/build/three.module.js",
+    "three/addons/": "./three/node_modules/three/examples/jsm/"
+  }
+}
+</script>
+
+<script>
+window._jarvis3dReady = false;
+window.setCameraState = function(active) {
+  const el = document.getElementById('camera-indicator');
+  if (el) {
+    el.style.display = active ? 'block' : 'none';
+  }
+};
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+const CONFIG = {
+  PARTICLE_COUNT: 2500,
+  BLOOM_STRENGTH: 0.35,
+  BLOOM_RADIUS: 0.40,
+  BLOOM_THRESHOLD: 0.22,
+  CORE_RADIUS: 3.0,
+  CAMERA_DISTANCE: 12.0,
+};
+
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, CONFIG.CAMERA_DISTANCE);
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  alpha: true,
+  powerPreference: 'high-performance'
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x07111F, 0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+container.appendChild(renderer.domElement);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  CONFIG.BLOOM_STRENGTH,
+  CONFIG.BLOOM_RADIUS,
+  CONFIG.BLOOM_THRESHOLD
+);
+composer.addPass(bloomPass);
+
+// Master Core Group
+const coreGroup = new THREE.Group();
+scene.add(coreGroup);
+
+// ── 1. INNER DARK NAVY CORE SPHERE (Prevents glare, gives deep dark center) ──
+const innerGeo = new THREE.SphereGeometry(CONFIG.CORE_RADIUS * 0.88, 32, 32);
+const innerMat = new THREE.MeshBasicMaterial({
+  color: 0x030B18,
+  transparent: true,
+  opacity: 0.85,
+  depthWrite: true
+});
+const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+coreGroup.add(innerMesh);
+
+// Inner Core Glow Rim
+const innerRimMat = new THREE.MeshBasicMaterial({
+  color: 0x00E5FF,
+  wireframe: true,
+  transparent: true,
+  opacity: 0.15,
+  blending: THREE.AdditiveBlending
+});
+const innerRimMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(CONFIG.CORE_RADIUS * 0.90, 2), innerRimMat);
+coreGroup.add(innerRimMesh);
+
+// ── 2. 3D NEURAL NETWORK WIREFRAME SPHERE & NODES ──
+const sphereGeo = new THREE.IcosahedronGeometry(CONFIG.CORE_RADIUS, 3);
+const wireframeGeo = new THREE.WireframeGeometry(sphereGeo);
+
+const wireframeMat = new THREE.LineBasicMaterial({
+  color: 0x0099FF,
+  transparent: true,
+  opacity: 0.55,
+  blending: THREE.AdditiveBlending
+});
+const wireframeLines = new THREE.LineSegments(wireframeGeo, wireframeMat);
+coreGroup.add(wireframeLines);
+
+// Outer Secondary Neural Grid
+const outerGridGeo = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(CONFIG.CORE_RADIUS * 1.15, 2));
+const outerGridMat = new THREE.LineBasicMaterial({
+  color: 0x00E5FF,
+  transparent: true,
+  opacity: 0.25,
+  blending: THREE.AdditiveBlending
+});
+const outerGridLines = new THREE.LineSegments(outerGridGeo, outerGridMat);
+coreGroup.add(outerGridLines);
+
+// Neural Node Points (Intersection Vertices)
+const nodePositions = sphereGeo.attributes.position.array;
+const nodeCount = nodePositions.length / 3;
+const nodeSizes = new Float32Array(nodeCount);
+
+for (let i = 0; i < nodeCount; i++) {
+  nodeSizes[i] = 1.0 + Math.random() * 1.5;
+}
+
+const nodeGeo = new THREE.BufferGeometry();
+nodeGeo.setAttribute('position', sphereGeo.attributes.position);
+nodeGeo.setAttribute('aSize', new THREE.BufferAttribute(nodeSizes, 1));
+
+const nodeMat = new THREE.PointsMaterial({
+  color: 0x00F0FF,
+  size: 0.14,
+  transparent: true,
+  opacity: 0.9,
+  blending: THREE.AdditiveBlending
+});
+const nodePoints = new THREE.Points(nodeGeo, nodeMat);
+coreGroup.add(nodePoints);
+
+// ── 3. HOLOGRAPHIC CONCENTRIC ORBIT RINGS ──
+const ringGroup = new THREE.Group();
+coreGroup.add(ringGroup);
+
+const createRing = (radius, tiltX, tiltY, colorVal) => {
+  const points = [];
+  const segments = 128;
+  for (let i = 0; i <= segments; i++) {
+    const theta = (i / segments) * Math.PI * 2;
+    points.push(new THREE.Vector3(Math.cos(theta) * radius, Math.sin(theta) * radius, 0));
+  }
+  const ringGeo = new THREE.BufferGeometry().setFromPoints(points);
+  const ringMat = new THREE.LineBasicMaterial({
+    color: colorVal,
+    transparent: true,
+    opacity: 0.45,
+    blending: THREE.AdditiveBlending
+  });
+  const ringLine = new THREE.Line(ringGeo, ringMat);
+  ringLine.rotation.x = tiltX;
+  ringLine.rotation.y = tiltY;
+  return ringLine;
+};
+
+const ring1 = createRing(CONFIG.CORE_RADIUS * 1.35, Math.PI * 0.4, 0, 0x00E5FF);
+const ring2 = createRing(CONFIG.CORE_RADIUS * 1.50, Math.PI * 0.2, Math.PI * 0.3, 0x4F7CFF);
+const ring3 = createRing(CONFIG.CORE_RADIUS * 1.65, Math.PI * 0.6, -Math.PI * 0.2, 0x8B72D9);
+ringGroup.add(ring1);
+ringGroup.add(ring2);
+ringGroup.add(ring3);
+
+// ── 4. AMBIENT DRIFTING NETWORK PARTICLES ──
+const particleCount = CONFIG.PARTICLE_COUNT;
+const particlePos = new Float32Array(particleCount * 3);
+const particlePhases = new Float32Array(particleCount);
+
+for (let i = 0; i < particleCount; i++) {
+  const r = CONFIG.CORE_RADIUS * (1.1 + Math.random() * 0.8);
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.acos(2 * Math.random() - 1);
+
+  particlePos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+  particlePos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+  particlePos[i * 3 + 2] = r * Math.cos(phi);
+
+  particlePhases[i] = Math.random() * Math.PI * 2;
+}
+
+const particleGeo = new THREE.BufferGeometry();
+particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+particleGeo.setAttribute('aPhase', new THREE.BufferAttribute(particlePhases, 1));
+
+const particleMat = new THREE.PointsMaterial({
+  color: 0x00E5FF,
+  size: 0.08,
+  transparent: true,
+  opacity: 0.65,
+  blending: THREE.AdditiveBlending
+});
+const particles = new THREE.Points(particleGeo, particleMat);
+coreGroup.add(particles);
+
+// ── 5. CENTER HOLOGRAPHIC "JARVIS" / "AI CORE" TEXT CANVAS ──
+const textCanvas = document.createElement('canvas');
+textCanvas.width = 512;
+textCanvas.height = 256;
+const ctx = textCanvas.getContext('2d');
+
+function updateTextCanvas(titleStr, subStr) {
+  ctx.clearRect(0, 0, 512, 256);
+
+  // Glow title
+  ctx.font = 'bold 36px "Segoe UI", sans-serif';
+  ctx.fillStyle = '#00F0FF';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = 'rgba(0, 240, 255, 0.8)';
+  ctx.shadowBlur = 12;
+  ctx.fillText(titleStr, 256, 120);
+
+  // Subtitle
+  ctx.font = 'bold 12px "Segoe UI", sans-serif';
+  ctx.fillStyle = '#A7B4C5';
+  ctx.shadowBlur = 6;
+  ctx.fillText(subStr, 256, 150);
+}
+updateTextCanvas('J A R V I S', 'QUANTUM AI CORE');
+
+const textTex = new THREE.CanvasTexture(textCanvas);
+textTex.minFilter = THREE.LinearFilter;
+const textMat = new THREE.MeshBasicMaterial({
+  map: textTex,
+  transparent: true,
+  opacity: 0.88,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending
+});
+const textMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.8), textMat);
+textMesh.position.z = CONFIG.CORE_RADIUS * 0.1;
+coreGroup.add(textMesh);
+
+// ── STATE MACHINE & ANIMATION CONTROLLER ──
+let currentState = 'IDLE';
+let targetScale = 1.0;
+let currentScale = 1.0;
+let audioLevel = 0.0;
+
+let clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const time = clock.getElapsedTime();
+
+  // Core 3D Rotation
+  let rotSpeed = 0.15;
+  if (currentState === 'THINKING' || currentState === 'PROCESSING') {
+    rotSpeed = 0.45;
+  } else if (currentState === 'LISTENING') {
+    rotSpeed = 0.25;
+  }
+
+  wireframeLines.rotation.y = time * rotSpeed;
+  wireframeLines.rotation.x = time * (rotSpeed * 0.5);
+  outerGridLines.rotation.y = -time * (rotSpeed * 0.7);
+  nodePoints.rotation.y = time * rotSpeed;
+  nodePoints.rotation.x = time * (rotSpeed * 0.5);
+
+  // Orbit Rings Animation
+  ring1.rotation.z = time * 0.25;
+  ring2.rotation.z = -time * 0.20;
+  ring3.rotation.z = time * 0.15;
+
+  // Particle Orbiting
+  particles.rotation.y = time * 0.08;
+
+  // Pulse & State Dynamics
+  let pulse = Math.sin(time * 2.0) * 0.025;
+  if (currentState === 'LISTENING') {
+    pulse = Math.sin(time * 4.0) * 0.045;
+  } else if (currentState === 'THINKING' || currentState === 'PROCESSING') {
+    pulse = Math.sin(time * 6.0) * 0.06;
+  } else if (currentState === 'SPEAKING' || currentState === 'RESPONDING') {
+    pulse = audioLevel * 0.14;
+  }
+
+  targetScale = 1.0 + pulse + audioLevel * 0.10;
+  currentScale += (targetScale - currentScale) * 0.1;
+  coreGroup.scale.set(currentScale, currentScale, currentScale);
+
+  composer.render();
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── TELEMETRY & STATE BRIDGE FOR PYTHON ──
+window.JARVIS3DCore = {
+  setState: function(state) {
+    currentState = state ? state.toUpperCase() : 'IDLE';
+    const el = document.getElementById('state-text');
+    if (el) el.innerText = currentState;
+
+    // Color theme transitions based on state
+    if (currentState === 'LISTENING') {
+      wireframeMat.color.setHex(0x00F0FF);
+      nodeMat.color.setHex(0x00F0FF);
+      ring1.material.color.setHex(0x00F0FF);
+      updateTextCanvas('J A R V I S', 'LISTENING...');
+    } else if (currentState === 'THINKING' || currentState === 'PROCESSING') {
+      wireframeMat.color.setHex(0x7000FF);
+      nodeMat.color.setHex(0x00D4FF);
+      ring1.material.color.setHex(0x7000FF);
+      updateTextCanvas('J A R V I S', 'PROCESSING');
+    } else if (currentState === 'SPEAKING' || currentState === 'RESPONDING') {
+      wireframeMat.color.setHex(0x00FFBB);
+      nodeMat.color.setHex(0x00E5FF);
+      ring1.material.color.setHex(0x00FFBB);
+      updateTextCanvas('J A R V I S', 'ACTIVE RESPONDING');
+    } else if (currentState === 'LEARNING' || currentState === 'PREDICTING') {
+      wireframeMat.color.setHex(0x3B82F6);
+      nodeMat.color.setHex(0x00E5FF);
+      ring1.material.color.setHex(0x3B82F6);
+      updateTextCanvas('J A R V I S', 'LEARNING PATTERNS');
+    } else if (currentState === 'ERROR') {
+      wireframeMat.color.setHex(0xFF0055);
+      nodeMat.color.setHex(0xFF5500);
+      ring1.material.color.setHex(0xFF0055);
+      updateTextCanvas('J A R V I S', 'SYSTEM RECOVERY');
+    } else {
+      wireframeMat.color.setHex(0x0099FF);
+      nodeMat.color.setHex(0x00F0FF);
+      ring1.material.color.setHex(0x00E5FF);
+      updateTextCanvas('J A R V I S', 'QUANTUM AI CORE');
+    }
+    textTex.needsUpdate = true;
+  },
+
+  setAudioLevel: function(val) {
+    audioLevel = Math.max(0.0, Math.min(1.0, parseFloat(val) || 0.0));
+    const el = document.getElementById('telem-audio');
+    if (el) el.innerText = (audioLevel * 100).toFixed(0) + ' %';
+  },
+
+  setHandPosition: function(x, y, gesture, depth) {
+    if (typeof gesture === 'boolean') {
+      gesture = gesture ? 'DETECTED' : 'NONE';
+    }
+    const el = document.getElementById('telem-hand');
+    if (el) el.innerText = gesture && gesture !== 'NONE' ? gesture : 'IDLE';
+    if (coreMesh && x !== undefined && y !== undefined) {
+      coreMesh.rotation.y = (x - 0.5) * Math.PI;
+      coreMesh.rotation.x = (y - 0.5) * Math.PI;
+    }
+  }
+};
+
+window._jarvis3dReady = true;
+</script>
+</body>
+</html>

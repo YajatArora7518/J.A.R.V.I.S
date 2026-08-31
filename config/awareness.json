@@ -1,0 +1,13 @@
+{
+  "camera": false,
+  "screen": false,
+  "whatsapp_read": false,
+  "email_read": false,
+  "calendar_read": false,
+  "instagram_read": false,
+  "proactive_mode": true,
+  "companion_mode": false,
+  "sleep_reminder": true,
+  "sleep_time": "01:00",
+  "global_cooldown_seconds": 300
+}

@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JARVIS Holographic AI Core</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #07111F;
+    font-family: 'Segoe UI', 'Inter', -apple-system, sans-serif;
+    color: #E8EEF5;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* 3D Viewport Base */
+  #canvas-container {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+    background: radial-gradient(circle at center, rgba(11, 22, 40, 1) 0%, rgba(7, 17, 31, 1) 65%, rgba(30, 24, 60, 0.45) 100%);
+  }
+  canvas { display: block; }
+
+  /* ── HUD 3D Spatial Overlay Container ── */
+  #hud {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 10;
+    pointer-events: none;
+    overflow: hidden;
+    perspective: 1200px;
+    perspective-origin: 50% 50%;
+  }
+
+  /* ── HUD Corner Reticles ── */
+  .corner-bracket {
+    position: absolute;
+    width: 42px; height: 42px;
+    border-color: rgba(86, 224, 232, 0.4);
+    border-style: solid;
+    border-width: 0;
+    transition: border-color 0.6s ease, transform 0.4s ease;
+    box-shadow: 0 0 12px rgba(86, 224, 232, 0.2);
+  }
+  .cb-tl { top: 12px; left: 12px; border-top-width: 2px; border-left-width: 2px; }
+  .cb-tr { top: 12px; right: 12px; border-top-width: 2px; border-right-width: 2px; }
+  .cb-bl { bottom: 12px; left: 12px; border-bottom-width: 2px; border-left-width: 2px; }
+  .cb-br { bottom: 12px; right: 12px; border-bottom-width: 2px; border-right-width: 2px; }
+
+  /* ── Holographic Scanning Beam ── */
+  .scan-line {
+    position: absolute;
+    left: 0; width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, rgba(86, 224, 232, 0.15) 15%, rgba(86, 224, 232, 0.5) 50%, rgba(86, 224, 232, 0.15) 85%, transparent 100%);
+    box-shadow: 0 0 15px rgba(86, 224, 232, 0.6);
+    animation: scanDown 9s linear infinite;
+    opacity: 0.6;
+  }
+  @keyframes scanDown { 0% { top: -2px; } 100% { top: 100%; } }
+
+  /* ── Floating 3D Glassmorphic Holographic Panels ── */
+  .holo-panel {
+    position: absolute;
+    background: rgba(8, 20, 36, 0.68);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(86, 224, 232, 0.32);
+    border-radius: 10px;
+    box-shadow: 0 0 30px rgba(86, 224, 232, 0.14), inset 0 0 15px rgba(86, 224, 232, 0.08);
+    padding: 12px 16px;
+    font-family: 'Consolas', 'JetBrains Mono', 'Segoe UI', monospace;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+    opacity: 0;
+    pointer-events: auto;
+    transform-style: preserve-3d;
+  }
+
+  .holo-panel.visible {
+    opacity: 1;
+    animation: holoMaterialize 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes holoMaterialize {
+    0% { opacity: 0; transform: scale(0.88) translateZ(-40px) rotateY(15deg); filter: brightness(2) blur(4px); }
+    70% { filter: brightness(1.4) blur(0px); }
+    100% { opacity: 1; transform: scale(1) translateZ(0px) rotateY(0deg); filter: brightness(1); }
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #56E0E8;
+    border-bottom: 1px solid rgba(86, 224, 232, 0.2);
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+    text-shadow: 0 0 8px rgba(86, 224, 232, 0.5);
+  }
+  .panel-tag {
+    font-size: 8px;
+    color: #4F7CFF;
+    background: rgba(79, 124, 255, 0.18);
+    border: 1px solid rgba(79, 124, 255, 0.35);
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* ── Panel Spatial 3D Offsets & Floating Animations ── */
+  .panel-sys {
+    top: 20px; left: 40px; width: 310px;
+    transform: perspective(1200px) rotateY(10deg) rotateX(4deg) translateZ(30px);
+    animation: floatSys 7s ease-in-out infinite alternate;
+  }
+  @keyframes floatSys {
+    0% { transform: perspective(1200px) rotateY(10deg) rotateX(4deg) translateZ(30px) translateY(0px); }
+    100% { transform: perspective(1200px) rotateY(12deg) rotateX(2deg) translateZ(45px) translateY(-8px); }
+  }
+
+  .panel-weather {
+    top: 20px; right: 40px; width: 250px;
+    transform: perspective(1200px) rotateY(-10deg) rotateX(4deg) translateZ(30px);
+    animation: floatWeather 8s ease-in-out infinite alternate;
+  }
+  @keyframes floatWeather {
+    0% { transform: perspective(1200px) rotateY(-10deg) rotateX(4deg) translateZ(30px) translateY(0px); }
+    100% { transform: perspective(1200px) rotateY(-12deg) rotateX(2deg) translateZ(45px) translateY(-6px); }
+  }
+
+  .panel-news {
+    bottom: 75px; right: 40px; width: 310px; max-height: 220px; overflow-y: auto;
+    transform: perspective(1200px) rotateY(-12deg) rotateX(-4deg) translateZ(20px);
+    animation: floatNews 7.5s ease-in-out infinite alternate;
+  }
+  @keyframes floatNews {
+    0% { transform: perspective(1200px) rotateY(-12deg) rotateX(-4deg) translateZ(20px) translateY(0px); }
+    100% { transform: perspective(1200px) rotateY(-14deg) rotateX(-2deg) translateZ(35px) translateY(-8px); }
+  }
+
+  .panel-response {
+    bottom: 75px; left: 50%; width: 480px; text-align: center;
+    transform: translateX(-50%) perspective(1200px) rotateX(6deg) translateZ(35px);
+    animation: floatResp 6.5s ease-in-out infinite alternate;
+  }
+  @keyframes floatResp {
+    0% { transform: translateX(-50%) perspective(1200px) rotateX(6deg) translateZ(35px) translateY(0px); }
+    100% { transform: translateX(-50%) perspective(1200px) rotateX(3deg) translateZ(50px) translateY(-6px); }
+  }
+
+  /* ── 3D HOLOGRAPHIC SYSTEM USAGE RADIAL GAUGES ── */
+  .gauges-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .gauge-card {
+    position: relative;
+    background: rgba(11, 22, 40, 0.65);
+    border: 1px solid rgba(86, 224, 232, 0.2);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 10px rgba(86, 224, 232, 0.05);
+    transition: all 0.3s ease;
+  }
+  .gauge-card:hover {
+    border-color: rgba(86, 224, 232, 0.6);
+    box-shadow: 0 0 15px rgba(86, 224, 232, 0.2), inset 0 0 12px rgba(86, 224, 232, 0.1);
+  }
+  .gauge-svg {
+    width: 68px; height: 68px;
+    transform: rotate(-90deg);
+  }
+  .gauge-bg {
+    fill: none;
+    stroke: rgba(18, 31, 50, 0.9);
+    stroke-width: 5;
+  }
+  .gauge-fill {
+    fill: none;
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 175.9; /* 2 * PI * 28 */
+    stroke-dashoffset: 175.9;
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.4s ease;
+    filter: drop-shadow(0 0 4px rgba(86, 224, 232, 0.8));
+  }
+  .gauge-center {
+    position: absolute;
+    top: 26px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .gauge-val-num {
+    font-size: 13px;
+    font-weight: 800;
+    color: #56E0E8;
+    text-shadow: 0 0 6px rgba(86, 224, 232, 0.6);
+  }
+  .gauge-lbl {
+    font-size: 8px;
+    font-weight: 700;
+    color: #A7B4C5;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* Telemetry Fallback Bar & Values (Preserves test DOM contract) */
+  .telem-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-size: 9px;
+  }
+  .telem-name { color: #A7B4C5; width: 45px; font-weight: 600; }
+  .telem-bar-bg {
+    flex: 1; height: 4px;
+    background: rgba(18, 31, 50, 0.8);
+    border-radius: 2px; margin: 0 6px; overflow: hidden;
+    border: 1px solid rgba(86, 224, 232, 0.12);
+  }
+  .telem-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4F7CFF, #56E0E8);
+    border-radius: 2px; width: 0%; transition: width 0.4s ease;
+  }
+  .telem-val { color: #56E0E8; font-weight: 700; width: 35px; text-align: right; }
+
+  /* ── Weather Panel Details ── */
+  .weather-temp { font-size: 24px; font-weight: 800; color: #56E0E8; margin: 2px 0; text-shadow: 0 0 10px rgba(86, 224, 232, 0.5); }
+  .weather-sub { font-size: 9px; color: #A7B4C5; letter-spacing: 1px; }
+
+  /* ── News / Search Result Details ── */
+  .news-query { font-size: 10px; color: #D9A441; font-weight: 700; margin-bottom: 6px; border-bottom: 1px dashed rgba(217, 164, 65, 0.3); padding-bottom: 3px; }
+  .news-item { font-size: 9px; color: #E8EEF5; margin-bottom: 6px; line-height: 1.35; border-left: 2px solid #56E0E8; padding-left: 6px; }
+  .news-title { font-weight: 700; color: #56E0E8; margin-bottom: 1px; }
+  .news-snippet { color: #A7B4C5; font-size: 8.5px; }
+
+  /* ── Response Text ── */
+  .resp-text { font-size: 11.5px; font-weight: 700; color: #56E0E8; line-height: 1.45; letter-spacing: 0.5px; text-shadow: 0 0 8px rgba(86, 224, 232, 0.4); }
+
+  /* ── Temporal Time HUD ── */
+  .time-hud {
+    position: absolute;
+    top: 14px; left: 50%;
+    transform: translateX(-50%) perspective(1200px) translateZ(20px);
+    text-align: center;
+    background: rgba(8, 20, 36, 0.75);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(79, 124, 255, 0.3);
+    padding: 5px 20px;
+    border-radius: 14px;
+    box-shadow: 0 0 20px rgba(79, 124, 255, 0.15);
+  }
+  .time-text { font-size: 14px; font-weight: 800; color: #E8EEF5; letter-spacing: 2.5px; text-shadow: 0 0 8px rgba(232, 238, 245, 0.6); }
+  .date-text { font-size: 8px; font-weight: 700; color: #A7B4C5; letter-spacing: 2px; }
+
+  /* ── Status & Audio Waveform ── */
+  .center-status {
+    position: absolute;
+    bottom: 16px; left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  #waveform { display: flex; gap: 2px; align-items: center; height: 20px; }
+  .wave-bar {
+    width: 3px;
+    background: rgba(86, 224, 232, 0.5);
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(86, 224, 232, 0.3);
+    transition: height 0.06s ease, background-color 0.3s ease;
+    min-height: 2px;
+  }
+  .hud-state {
+    font-size: 9px; font-weight: 800; letter-spacing: 3px; color: #56E0E8;
+    padding: 4px 18px; background: rgba(8, 20, 36, 0.85);
+    backdrop-filter: blur(16px); border: 1px solid rgba(86, 224, 232, 0.3);
+    border-radius: 16px; display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 0 15px rgba(86, 224, 232, 0.15);
+    transition: all 0.4s ease;
+  }
+  .state-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #56E0E8;
+    box-shadow: 0 0 8px #56E0E8; animation: dotPulse 2s ease-in-out infinite;
+  }
+  @keyframes dotPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.7); } }
+
+  /* Camera Active Indicator */
+  #camera-indicator {
+    position: absolute; top: 58px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; font-weight: 800; letter-spacing: 2px; color: #E53E3E;
+    text-shadow: 0 0 8px rgba(229, 62, 62, 0.7); display: none;
+  }
+
+  /* Radar Sweep & Data Streams */
+  .radar-sweep {
+    position: absolute; top: 50%; left: 50%;
+    width: 220px; height: 220px; transform: translate(-50%, -50%);
+    border-radius: 50%; border: 1px solid rgba(86, 224, 232, 0.12);
+    overflow: hidden; pointer-events: none; opacity: 0; transition: opacity 0.8s ease;
+  }
+  .radar-sweep.active { opacity: 1; }
+  .radar-sweep::after {
+    content: ''; position: absolute; top: 50%; left: 50%; width: 50%; height: 50%;
+    transform-origin: 0 0;
+    background: conic-gradient(from 0deg, transparent 0deg, rgba(86, 224, 232, 0.18) 30deg, transparent 60deg);
+    animation: radarSpin 3s linear infinite;
+  }
+  @keyframes radarSpin { 100% { transform: rotate(360deg); } }
+
+  .data-stream {
+    position: absolute; font-family: 'Consolas', monospace; font-size: 8.5px;
+    color: rgba(86, 224, 232, 0.25); letter-spacing: 1px; white-space: nowrap;
+    pointer-events: none; opacity: 0; transition: opacity 0.5s ease;
+  }
+  .data-stream.active { opacity: 1; }
+
+  /* 2D Canvas for Core -> Hologram Projector Light Rays */
+  #link-canvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 5;
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<canvas id="link-canvas"></canvas>
+
+<div id="hud">
+  <!-- Corner Reticles -->
+  <div class="corner-bracket cb-tl"></div>
+  <div class="corner-bracket cb-tr"></div>
+  <div class="corner-bracket cb-bl"></div>
+  <div class="corner-bracket cb-br"></div>
+  <div class="scan-line"></div>
+
+  <!-- Radar & Data Streams -->
+  <div class="radar-sweep" id="radar-sweep"></div>
+  <div class="data-stream" id="ds0" style="left: 8%; top: 30%;">0xA7F2 SYNC NEURAL_LINK</div>
+
+  <!-- Hidden Telemetry Elements for Test Contract Compatibility -->
+  <div style="display: none;">
+    <span id="telem-audio">0 %</span>
+    <span id="telem-hand">IDLE</span>
+  </div>
+
+  <!-- Temporal Time HUD -->
+  <div class="time-hud">
+    <div class="time-text" id="time-val">00:00:00 AM</div>
+    <div class="date-text" id="date-val">SUN • 09 AUG 2026</div>
+  </div>
+
+  <!-- 3D Holographic System Telemetry Module (Top Left) -->
+  <div class="holo-panel panel-sys visible" id="panel-sys">
+    <div class="panel-header">
+      <span>3D SYSTEM TELEMETRY</span>
+      <span class="panel-tag">LIVE HUD</span>
+    </div>
+
+    <!-- 3D Circular Radial Gauges -->
+    <div class="gauges-grid">
+      <!-- CPU Gauge -->
+      <div class="gauge-card">
+        <svg class="gauge-svg" viewBox="0 0 64 64">
+          <circle class="gauge-bg" cx="32" cy="32" r="28"/>
+          <circle class="gauge-fill" id="ring-cpu" cx="32" cy="32" r="28" style="stroke: #56E0E8;"/>
+        </svg>
+        <div class="gauge-center">
+          <span class="gauge-val-num" id="gval-cpu">15%</span>
+        </div>
+        <span class="gauge-lbl">CPU</span>
+      </div>
+
+      <!-- RAM Gauge -->
+      <div class="gauge-card">
+        <svg class="gauge-svg" viewBox="0 0 64 64">
+          <circle class="gauge-bg" cx="32" cy="32" r="28"/>
+          <circle class="gauge-fill" id="ring-ram" cx="32" cy="32" r="28" style="stroke: #8B72D9;"/>
+        </svg>
+        <div class="gauge-center">
+          <span class="gauge-val-num" id="gval-ram">45%</span>
+        </div>
+        <span class="gauge-lbl">RAM</span>
+      </div>
+
+      <!-- DISK Gauge -->
+      <div class="gauge-card">
+        <svg class="gauge-svg" viewBox="0 0 64 64">
+          <circle class="gauge-bg" cx="32" cy="32" r="28"/>
+          <circle class="gauge-fill" id="ring-disk" cx="32" cy="32" r="28" style="stroke: #20B8A6;"/>
+        </svg>
+        <div class="gauge-center">
+          <span class="gauge-val-num" id="gval-disk">30%</span>
+        </div>
+        <span class="gauge-lbl">DISK</span>
+      </div>
+
+      <!-- GPU Gauge -->
+      <div class="gauge-card">
+        <svg class="gauge-svg" viewBox="0 0 64 64">
+          <circle class="gauge-bg" cx="32" cy="32" r="28"/>
+          <circle class="gauge-fill" id="ring-gpu" cx="32" cy="32" r="28" style="stroke: #D9A441;"/>
+        </svg>
+        <div class="gauge-center">
+          <span class="gauge-val-num" id="gval-gpu">N/A</span>
+        </div>
+        <span class="gauge-lbl">GPU</span>
+      </div>
+    </div>
+
+    <!-- Hidden / Micro Fallback Telemetry Rows for Unit Test Contract Match -->
+    <div class="telem-row">
+      <span class="telem-name">CPU</span>
+      <div class="telem-bar-bg"><div class="telem-bar-fill" id="bar-cpu" style="width: 15%;"></div></div>
+      <span class="telem-val" id="val-cpu">15%</span>
+    </div>
+    <div class="telem-row">
+      <span class="telem-name">RAM</span>
+      <div class="telem-bar-bg"><div class="telem-bar-fill" id="bar-ram" style="width: 45%;"></div></div>
+      <span class="telem-val" id="val-ram">45%</span>
+    </div>
+    <div class="telem-row">
+      <span class="telem-name">DISK</span>
+      <div class="telem-bar-bg"><div class="telem-bar-fill" id="bar-disk" style="width: 30%;"></div></div>
+      <span class="telem-val" id="val-disk">30%</span>
+    </div>
+    <div class="telem-row">
+      <span class="telem-name">GPU</span>
+      <div class="telem-bar-bg"><div class="telem-bar-fill" id="bar-gpu" style="width: 0%;"></div></div>
+      <span class="telem-val" id="val-gpu">N/A</span>
+    </div>
+  </div>
+
+  <!-- Weather Hologram Panel (Top Right) -->
+  <div class="holo-panel panel-weather" id="panel-weather">
+    <div class="panel-header">
+      <span id="w-city">WEATHER</span>
+      <span class="panel-tag">ENVIRONMENT</span>
+    </div>
+    <div class="weather-temp" id="w-temp">--°C</div>
+    <div class="weather-sub" id="w-cond">DATA UNAVAILABLE</div>
+    <div class="weather-sub" id="w-details" style="margin-top: 4px;">Humidity: -- | Wind: --</div>
+  </div>
+
+  <!-- News / Web Intelligence Hologram Panel (Bottom Right) -->
+  <div class="holo-panel panel-news" id="panel-news">
+    <div class="panel-header">
+      <span>WEB INTELLIGENCE</span>
+      <span class="panel-tag">SEARCH</span>
+    </div>
+    <div class="news-query" id="news-query">QUERY: Idle</div>
+    <div id="news-content-list">
+      <div class="news-item" id="news-content">Awaiting search query...</div>
+    </div>
+  </div>
+
+  <!-- Response Visualization Panel (Bottom Center) -->
+  <div class="holo-panel panel-response visible" id="panel-response">
+    <div class="panel-header" style="justify-content: center; gap: 8px;">
+      <span>J.A.R.V.I.S RESPONSE</span>
+    </div>
+    <div class="resp-text" id="resp-text">"Online and standing by for commands, sir."</div>
+  </div>
+
+  <!-- Camera Active Indicator -->
+  <div id="camera-indicator">● CAMERA ACTIVE</div>
+
+  <!-- Center Bottom Status & Waveform -->
+  <div class="center-status">
+    <div id="waveform"></div>
+    <div class="hud-state" id="hud-state">
+      <span class="state-dot" id="state-dot"></span>
+      <span id="state-text">IDLE</span>
+    </div>
+  </div>
+</div>
+
+<!-- Three.js Module Map -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "./three/node_modules/three/build/three.module.js",
+    "three/addons/": "./three/node_modules/three/examples/jsm/"
+  }
+}
+</script>
+
+<script>
+window._jarvis3dReady = false;
+window.setCameraState = function(active) {
+  var el = document.getElementById('camera-indicator');
+  if (el) el.style.display = active ? 'block' : 'none';
+};
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+const CFG = {
+  PARTICLE_COUNT: 2500,
+  BLOOM_STRENGTH: 0.32,
+  BLOOM_RADIUS: 0.40,
+  BLOOM_THRESHOLD: 0.18,
+  CORE_RADIUS: 3.0,
+  CAM_DIST: 13.0,
+};
+
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 150);
+camera.position.set(0, 0.5, CFG.CAM_DIST);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x07111F, 0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+container.appendChild(renderer.domElement);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  CFG.BLOOM_STRENGTH, CFG.BLOOM_RADIUS, CFG.BLOOM_THRESHOLD
+);
+composer.addPass(bloomPass);
+
+// Holographic Grid Floor
+const gridHelper = new THREE.GridHelper(44, 44, 0x0a1e3d, 0x0a1e3d);
+gridHelper.position.y = -5.5;
+gridHelper.material.opacity = 0.25;
+gridHelper.material.transparent = true;
+scene.add(gridHelper);
+
+// ── Central 3D Core Group ──
+const coreGroup = new THREE.Group();
+scene.add(coreGroup);
+
+// Inner Dark Nucleus
+const innerGeo = new THREE.SphereGeometry(CFG.CORE_RADIUS * 0.85, 32, 32);
+const innerMat = new THREE.MeshBasicMaterial({ color: 0x030B18, transparent: true, opacity: 0.88, depthWrite: true });
+coreGroup.add(new THREE.Mesh(innerGeo, innerMat));
+
+// Wireframe Mesh
+const sphereGeo = new THREE.IcosahedronGeometry(CFG.CORE_RADIUS, 3);
+const wireframeGeo = new THREE.WireframeGeometry(sphereGeo);
+const wireframeMat = new THREE.LineBasicMaterial({ color: 0x0099FF, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending });
+const wireframeLines = new THREE.LineSegments(wireframeGeo, wireframeMat);
+coreGroup.add(wireframeLines);
+
+// Outer Grid Shell
+const outerGridGeo = new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(CFG.CORE_RADIUS * 1.15, 2));
+const outerGridMat = new THREE.LineBasicMaterial({ color: 0x00E5FF, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending });
+const outerGridLines = new THREE.LineSegments(outerGridGeo, outerGridMat);
+coreGroup.add(outerGridLines);
+
+// Core Nodes
+const nodeGeo = new THREE.BufferGeometry();
+nodeGeo.setAttribute('position', sphereGeo.attributes.position);
+const nodeMat = new THREE.PointsMaterial({ color: 0x00F0FF, size: 0.13, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending });
+const nodePoints = new THREE.Points(nodeGeo, nodeMat);
+coreGroup.add(nodePoints);
+
+// 6 Orbital Tech Rings
+const ringGroup = new THREE.Group();
+coreGroup.add(ringGroup);
+
+function makeRing(radius, tiltX, tiltY, color, opacity) {
+  const pts = [];
+  const seg = 160;
+  for (let i = 0; i <= seg; i++) {
+    const t = (i / seg) * Math.PI * 2;
+    pts.push(new THREE.Vector3(Math.cos(t) * radius, Math.sin(t) * radius, 0));
+  }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: opacity, blending: THREE.AdditiveBlending });
+  const line = new THREE.Line(geo, mat);
+  line.rotation.x = tiltX; line.rotation.y = tiltY;
+  return line;
+}
+
+const R = CFG.CORE_RADIUS;
+const rings = [
+  makeRing(R * 1.30, Math.PI * 0.42, 0.0, 0x00E5FF, 0.45),
+  makeRing(R * 1.45, Math.PI * 0.22, Math.PI * 0.28, 0x4F7CFF, 0.38),
+  makeRing(R * 1.60, Math.PI * 0.60, -Math.PI * 0.20, 0x8B72D9, 0.32),
+  makeRing(R * 1.80, Math.PI * 0.10, Math.PI * 0.50, 0x20B8A6, 0.22),
+  makeRing(R * 2.00, Math.PI * 0.75, Math.PI * 0.15, 0x6978E8, 0.16),
+  makeRing(R * 2.20, Math.PI * 0.35, Math.PI * 0.80, 0x00F0FF, 0.12)
+];
+rings.forEach(r => ringGroup.add(r));
+
+// Ambient Voice-Reactive Particle Cloud
+const pCount = CFG.PARTICLE_COUNT;
+const pPos = new Float32Array(pCount * 3);
+for (let i = 0; i < pCount; i++) {
+  const r = R * (1.12 + Math.random() * 1.15);
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.acos(2 * Math.random() - 1);
+  pPos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+  pPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+  pPos[i * 3 + 2] = r * Math.cos(phi);
+}
+const particleGeo = new THREE.BufferGeometry();
+particleGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+const particleMat = new THREE.PointsMaterial({ color: 0x00E5FF, size: 0.07, transparent: true, opacity: 0.60, blending: THREE.AdditiveBlending });
+const particles = new THREE.Points(particleGeo, particleMat);
+coreGroup.add(particles);
+
+// Center 3D Label
+const textCanvas = document.createElement('canvas');
+textCanvas.width = 512; textCanvas.height = 256;
+const ctx = textCanvas.getContext('2d');
+
+function updateTextCanvas(title, sub) {
+  ctx.clearRect(0, 0, 512, 256);
+  ctx.font = 'bold 34px "Segoe UI", sans-serif';
+  ctx.fillStyle = '#00F0FF';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = 'rgba(0, 240, 255, 0.6)';
+  ctx.shadowBlur = 14;
+  ctx.fillText(title, 256, 115);
+  ctx.font = 'bold 11px "Segoe UI", sans-serif';
+  ctx.fillStyle = '#A7B4C5';
+  ctx.shadowBlur = 6;
+  ctx.fillText(sub, 256, 145);
+}
+updateTextCanvas('J . A . R . V . I . S', 'HOLOGRAPHIC AI CORE');
+
+const textTex = new THREE.CanvasTexture(textCanvas);
+textTex.minFilter = THREE.LinearFilter;
+const textMat = new THREE.MeshBasicMaterial({ map: textTex, transparent: true, opacity: 0.88, depthWrite: false, blending: THREE.AdditiveBlending });
+const textMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 1.9), textMat);
+textMesh.position.z = R * 0.12;
+coreGroup.add(textMesh);
+
+// Waveform Bars Setup
+const waveContainer = document.getElementById('waveform');
+const WAVE_BARS = 28;
+const waveBars = [];
+for (let i = 0; i < WAVE_BARS; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'wave-bar';
+  bar.style.height = '2px';
+  waveContainer.appendChild(bar);
+  waveBars.push(bar);
+}
+
+// State System Colors
+let currentState = 'IDLE';
+let audioLevel = 0.0;
+let smoothAudio = 0.0;
+const clock = new THREE.Clock();
+
+const STATE_COLORS = {
+  IDLE:       { wire: 0x0099FF, css: '#56E0E8', sub: 'HOLOGRAPHIC AI CORE' },
+  LISTENING:  { wire: 0x00F0FF, css: '#00F0FF', sub: 'LISTENING...' },
+  THINKING:   { wire: 0xD9A441, css: '#D9A441', sub: 'PROCESSING...' },
+  SEARCHING:  { wire: 0xD9A441, css: '#D9A441', sub: 'SEARCHING...' },
+  EXECUTING:  { wire: 0x8B72D9, css: '#8B72D9', sub: 'EXECUTING...' },
+  SPEAKING:   { wire: 0x20B8A6, css: '#20B8A6', sub: 'RESPONDING...' },
+  RESPONDING: { wire: 0x20B8A6, css: '#20B8A6', sub: 'RESPONDING...' },
+  PROCESSING: { wire: 0xD9A441, css: '#D9A441', sub: 'PROCESSING...' },
+  LEARNING:   { wire: 0x4F7CFF, css: '#4F7CFF', sub: 'LEARNING PATTERNS' },
+  ERROR:      { wire: 0xE53E3E, css: '#E53E3E', sub: 'SYSTEM RECOVERY' },
+};
+
+function applyStateVisuals(state) {
+  const s = STATE_COLORS[state] || STATE_COLORS.IDLE;
+  wireframeMat.color.setHex(s.wire);
+  rings[0].material.color.setHex(s.wire);
+  updateTextCanvas('J . A . R . V . I . S', s.sub);
+  textTex.needsUpdate = true;
+
+  const stText = document.getElementById('state-text');
+  if (stText) stText.innerText = state;
+  const stDot = document.getElementById('state-dot');
+  if (stDot) { stDot.style.background = s.css; stDot.style.boxShadow = `0 0 8px ${s.css}`; }
+  const hudSt = document.getElementById('hud-state');
+  if (hudSt) { hudSt.style.color = s.css; hudSt.style.borderColor = s.css + '40'; }
+
+  const radar = document.getElementById('radar-sweep');
+  if (radar) radar.classList.toggle('active', state === 'LISTENING');
+
+  const dataStr = document.getElementById('ds0');
+  if (dataStr) dataStr.classList.toggle('active', ['THINKING', 'PROCESSING', 'SEARCHING'].includes(state));
+
+  waveBars.forEach(b => { b.style.background = s.css + '80'; });
+}
+
+// ── Interactive Mouse / Hand Parallax ──
+let mouseX = 0, mouseY = 0;
+window.addEventListener('mousemove', (e) => {
+  mouseX = (e.clientX / window.innerWidth - 0.5) * 2.0;
+  mouseY = (e.clientY / window.innerHeight - 0.5) * 2.0;
+});
+
+// ── Projector Data Links Canvas (Central Core -> 3D Panels) ──
+const linkCanvas = document.getElementById('link-canvas');
+const lctx = linkCanvas.getContext('2d');
+let dashOffset = 0;
+
+function drawDataLinks() {
+  linkCanvas.width = window.innerWidth;
+  linkCanvas.height = window.innerHeight;
+  lctx.clearRect(0, 0, linkCanvas.width, linkCanvas.height);
+
+  const cx = linkCanvas.width / 2;
+  const cy = linkCanvas.height / 2;
+  const panels = document.querySelectorAll('.holo-panel.visible');
+
+  dashOffset = (dashOffset - 0.5) % 12;
+  lctx.lineWidth = 1;
+  lctx.setLineDash([4, 6]);
+  lctx.lineDashOffset = dashOffset;
+
+  panels.forEach(p => {
+    const rect = p.getBoundingClientRect();
+    const px = rect.left + rect.width / 2;
+    const py = rect.top + rect.height / 2;
+
+    const grad = lctx.createLinearGradient(cx, cy, px, py);
+    grad.addColorStop(0, 'rgba(86, 224, 232, 0.4)');
+    grad.addColorStop(1, 'rgba(86, 224, 232, 0.1)');
+
+    lctx.strokeStyle = grad;
+    lctx.beginPath();
+    lctx.moveTo(cx, cy);
+    lctx.lineTo(px, py);
+    lctx.stroke();
+
+    // Node anchor dot
+    lctx.fillStyle = '#56E0E8';
+    lctx.beginPath();
+    lctx.arc(px, py, 2.5, 0, Math.PI * 2);
+    lctx.fill();
+  });
+}
+
+// ── Animation Loop ──
+let targetScale = 1.0;
+let currentScale = 1.0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  smoothAudio += (audioLevel - smoothAudio) * 0.15;
+
+  // Mouse / Hand Camera Parallax
+  camera.position.x += (mouseX * 1.2 - camera.position.x) * 0.05;
+  camera.position.y += (-mouseY * 0.8 + 0.5 - camera.position.y) * 0.05;
+  camera.lookAt(0, 0, 0);
+
+  let rotSpd = 0.12;
+  if (['THINKING', 'PROCESSING', 'SEARCHING'].includes(currentState)) rotSpd = 0.45;
+  else if (currentState === 'LISTENING') rotSpd = 0.22;
+  else if (currentState === 'SPEAKING') rotSpd = 0.18;
+
+  wireframeLines.rotation.y = t * rotSpd;
+  outerGridLines.rotation.y = -t * (rotSpd * 0.6);
+  nodePoints.rotation.y = t * rotSpd;
+
+  rings[0].rotation.z = t * 0.22;
+  rings[1].rotation.z = -t * 0.18;
+  rings[2].rotation.z = t * 0.14;
+  rings[3].rotation.x = t * 0.10;
+  rings[4].rotation.y = -t * 0.12;
+  particles.rotation.y = t * 0.06;
+
+  let pulse = Math.sin(t * 2.0) * 0.02;
+  if (currentState === 'LISTENING') pulse = Math.sin(t * 3.5) * 0.04;
+  else if (['THINKING', 'PROCESSING'].includes(currentState)) pulse = Math.sin(t * 5.5) * 0.06;
+  else if (['SPEAKING', 'RESPONDING'].includes(currentState)) pulse = smoothAudio * 0.14;
+
+  targetScale = 1.0 + pulse + smoothAudio * 0.08;
+  currentScale += (targetScale - currentScale) * 0.08;
+  coreGroup.scale.set(currentScale, currentScale, currentScale);
+
+  // Audio Waveform
+  const isAudioActive = ['SPEAKING', 'RESPONDING', 'LISTENING'].includes(currentState);
+  for (let i = 0; i < WAVE_BARS; i++) {
+    let h = 2;
+    if (isAudioActive && smoothAudio > 0.01) {
+      h = 2 + (Math.sin(t * 8.0 + i * 0.5) * 0.5 + 0.5) * smoothAudio * 18;
+    } else {
+      h = 2 + Math.sin(t * 1.5 + i * 0.3) * 1.2;
+    }
+    waveBars[i].style.height = h + 'px';
+  }
+
+  drawDataLinks();
+  composer.render();
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Helper for 3D SVG Circular Gauges
+function updateGauge(ringId, valId, valPercent, suffix = '%') {
+  const num = Math.max(0, Math.min(100, parseFloat(valPercent) || 0));
+  const ring = document.getElementById(ringId);
+  const val = document.getElementById(valId);
+  if (ring) {
+    const circumference = 175.9; // 2 * PI * 28
+    const offset = circumference - (num / 100) * circumference;
+    ring.style.strokeDashoffset = offset;
+  }
+  if (val) {
+    val.innerText = Math.round(num) + suffix;
+  }
+}
+
+// ════════════════════════════════════════════
+// PYTHON ↔ JAVASCRIPT API CONTRACT
+// (Preserves ALL existing DOM IDs + JS Methods)
+// ════════════════════════════════════════════
+window.JARVIS3DCore = {
+  setState: function(state) {
+    currentState = state ? state.toUpperCase() : 'IDLE';
+    applyStateVisuals(currentState);
+  },
+
+  setAudioLevel: function(val) {
+    audioLevel = Math.max(0.0, Math.min(1.0, parseFloat(val) || 0.0));
+    const el = document.getElementById('telem-audio');
+    if (el) el.innerText = (audioLevel * 100).toFixed(0) + ' %';
+  },
+
+  setHandPosition: function(x, y, gesture, depth) {
+    if (typeof gesture === 'boolean') {
+      gesture = gesture ? 'DETECTED' : 'NONE';
+    }
+    const el = document.getElementById('telem-hand');
+    if (el) el.innerText = gesture && gesture !== 'NONE' ? gesture : 'IDLE';
+    if (x !== undefined && y !== undefined) {
+      coreGroup.rotation.y += ((x - 0.5) * 0.4 - coreGroup.rotation.y) * 0.05;
+      coreGroup.rotation.x += ((y - 0.5) * 0.3 - coreGroup.rotation.x) * 0.05;
+    }
+  },
+
+  setTelemetry: function(cpu, mem, disk, net, gpu) {
+    // 1. Update 3D Circular Gauges
+    updateGauge('ring-cpu', 'gval-cpu', cpu);
+    updateGauge('ring-ram', 'gval-ram', mem);
+    updateGauge('ring-disk', 'gval-disk', disk);
+
+    const gGpu = document.getElementById('gval-gpu');
+    if (gpu !== null && gpu !== undefined && gpu !== 'N/A') {
+      updateGauge('ring-gpu', 'gval-gpu', gpu);
+    } else if (gGpu) {
+      gGpu.innerText = 'N/A';
+      const rGpu = document.getElementById('ring-gpu');
+      if (rGpu) rGpu.style.strokeDashoffset = 175.9;
+    }
+
+    // 2. Update Fallback Elements for Unit Test Contract Match
+    const barCpu = document.getElementById('bar-cpu');
+    const valCpu = document.getElementById('val-cpu');
+    if (barCpu && valCpu) { barCpu.style.width = cpu + '%'; valCpu.innerText = Math.round(cpu) + '%'; }
+
+    const barRam = document.getElementById('bar-ram');
+    const valRam = document.getElementById('val-ram');
+    if (barRam && valRam) { barRam.style.width = mem + '%'; valRam.innerText = Math.round(mem) + '%'; }
+
+    const barDisk = document.getElementById('bar-disk');
+    const valDisk = document.getElementById('val-disk');
+    if (barDisk && valDisk) { barDisk.style.width = disk + '%'; valDisk.innerText = Math.round(disk) + '%'; }
+
+    const barGpu = document.getElementById('bar-gpu');
+    const valGpu = document.getElementById('val-gpu');
+    if (barGpu && valGpu) {
+      if (gpu !== null && gpu !== undefined && gpu !== 'N/A') {
+        barGpu.style.width = gpu + '%'; valGpu.innerText = Math.round(gpu) + '%';
+      } else {
+        barGpu.style.width = '0%'; valGpu.innerText = 'N/A';
+      }
+    }
+  },
+
+  setWeather: function(location, temp, feels_like, condition, humidity, wind) {
+    const p = document.getElementById('panel-weather');
+    if (!p) return;
+    if (!location && !temp) {
+      p.classList.remove('visible');
+      return;
+    }
+    document.getElementById('w-city').innerText = (location || 'WEATHER').toUpperCase();
+    document.getElementById('w-temp').innerText = (temp || '--') + '°C';
+    document.getElementById('w-cond').innerText = (condition || 'CLEAR').toUpperCase() + (feels_like ? ` (Feels ${feels_like}°C)` : '');
+    document.getElementById('w-details').innerText = `Humidity: ${humidity || '--'} | Wind: ${wind || '--'}`;
+    p.classList.add('visible');
+
+    setTimeout(() => { if (currentState === 'IDLE') p.classList.remove('visible'); }, 12000);
+  },
+
+  setTime: function(timeStr, dateStr) {
+    const tEl = document.getElementById('time-val');
+    if (tEl && timeStr) tEl.innerText = timeStr;
+    const dEl = document.getElementById('date-val');
+    if (dEl && dateStr) dEl.innerText = dateStr;
+  },
+
+  setNews: function(query, headline) {
+    const p = document.getElementById('panel-news');
+    if (!p) return;
+    if (!query && !headline) {
+      p.classList.remove('visible');
+      return;
+    }
+    document.getElementById('news-query').innerText = 'QUERY: ' + (query || 'Search').toUpperCase();
+    document.getElementById('news-content').innerText = headline || 'Extracting web intelligence...';
+    p.classList.add('visible');
+
+    setTimeout(() => { if (currentState === 'IDLE') p.classList.remove('visible'); }, 15000);
+  },
+
+  setSearchResults: function(query, results) {
+    const p = document.getElementById('panel-news');
+    const container = document.getElementById('news-content-list');
+    if (!p || !container) return;
+
+    if (!query && (!results || results.length === 0)) {
+      p.classList.remove('visible');
+      return;
+    }
+
+    document.getElementById('news-query').innerText = 'SEARCH ANALYSIS: ' + (query || 'Web Query').toUpperCase();
+
+    let html = '';
+    if (Array.isArray(results) && results.length > 0) {
+      results.slice(0, 3).forEach(item => {
+        const title = item.title || item.name || 'Result';
+        const snippet = item.snippet || item.description || item.url || '';
+        html += `<div class="news-item"><div class="news-title">${title}</div><div class="news-snippet">${snippet.slice(0, 90)}</div></div>`;
+      });
+    } else if (typeof results === 'string') {
+      html = `<div class="news-item"><div class="news-snippet">${results.slice(0, 120)}</div></div>`;
+    } else {
+      html = '<div class="news-item"><div class="news-snippet">Extracting live web intelligence...</div></div>';
+    }
+
+    container.innerHTML = html;
+    p.classList.add('visible');
+
+    setTimeout(() => { if (currentState === 'IDLE') p.classList.remove('visible'); }, 15000);
+  },
+
+  setResponse: function(text) {
+    const p = document.getElementById('panel-response');
+    const rEl = document.getElementById('resp-text');
+    if (rEl && text) {
+      rEl.innerText = '"' + text + '"';
+      p.classList.add('visible');
+    }
+  },
+
+  showPanel: function(id) {
+    const p = document.getElementById(id);
+    if (p) p.classList.add('visible');
+  },
+
+  hidePanel: function(id) {
+    const p = document.getElementById(id);
+    if (p) p.classList.remove('visible');
+  }
+};
+
+window._jarvis3dReady = true;
+</script>
+</body>
+</html>
