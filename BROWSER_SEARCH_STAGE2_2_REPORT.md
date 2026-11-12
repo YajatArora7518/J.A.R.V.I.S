@@ -37,3 +37,13 @@ Preferences are written to `config/search_preferences.json` only when a preferen
 - `tests/test_search_preferences_stage22.py` (new)
 
 Stage 2.2 acceptance is complete for preference configuration and URL routing. Live browser reuse remains explicitly unverified because no CDP session was active.
+
+## Final audit addendum (2026-11-12)
+
+A static re-audit was performed on branch `audit/final-search-audit-20261112`; full findings are in [JARVIS_FINAL_SEARCH_AUDIT_20261112.md](JARVIS_FINAL_SEARCH_AUDIT_20261112.md).
+
+- Re-verified in code: precedence chain (explicit → browser → global), custom URL validation (exactly one `{query}`/`{searchTerms}`, HTTPS-only, public host, credential/local hosts rejected), atomic `os.replace` persistence with `fsync`, `.json.bak`/`.json.corrupt` recovery, per-browser validation isolation, and read-only browser detection.
+- Re-verified in code: `actions/browser_search.py::_search` returns no results unless Chrome CDP is already active and reuses pages via `get_or_open_page(..., allow_launch=False)`; Chrome is never launched by the search fallback. CAPTCHA/login pages return empty without bypass.
+- Tests were **NOT RUN** in the 2026-11-12 audit session (no runtime attached to the repository host); the 42/138-5-1 counts above remain the saved 2026-11-07 baseline. Re-run commands are listed in the audit findings file.
+- Live browser/session reuse remains **NOT VERIFIED** in the audit environment; no browser was launched and no profile was modified.
+- Rollback of this addendum: delete this section or do not merge the audit branch. No implementation file was changed by the audit.
