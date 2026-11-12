@@ -1,175 +1,106 @@
-# actions/discord_automation.py
-# Production Discord Automation Engine for JARVIS (Native Discord IPC & Discord Web CDP)
-
-import os
-import sys
-import time
-import logging
-import subprocess
-from typing import Dict, Any, Optional
-
+"""Discord controls verified against the actual signed-in browser UI."""
+import asyncio
+import re
 from actions.social_platform_resolver import SocialPlatformProvider
-from actions.open_app import open_app
-from actions.browser_automation import is_cdp_active, browser_automation_engine
-
-logger = logging.getLogger("JARVIS.Discord")
 
 
-def is_discord_native_running() -> bool:
-    """Checks if Discord Desktop native process is running."""
-    try:
-        res = subprocess.run("tasklist /FI \"IMAGENAME eq Discord.exe\"", shell=True, capture_output=True, text=True)
-        return "Discord.exe" in res.stdout
-    except Exception:
-        return False
+async def execute_discord_control(page, action, desired=True, channel="General"):
+    from actions.social_chat import _failed
+    if "/login" in page.url:
+        return _failed("Controlled Discord browser mein sign in karo.", "LOGIN_REQUIRED")
+    if action in ("mute", "deafen"):
+        current_label, requested_label = (("Mute", "Unmute") if action == "mute" else ("Deafen", "Undeafen"))
+        before_label = current_label if desired else requested_label
+        after_label = requested_label if desired else current_label
+        before = page.get_by_role("button", name=re.compile(rf"^{before_label}(?:\s*\(.*\))?$", re.I)).filter(visible=True)
+        after = page.get_by_role("button", name=re.compile(rf"^{after_label}(?:\s*\(.*\))?$", re.I)).filter(visible=True)
+        if await after.count() == 1 and await before.count() == 0:
+            return {"success": True, "verified": True, "message": f"Discord {action} already {'on' if desired else 'off'} hai."}
+        if await before.count() != 1:
+            return _failed(f"Discord {action} control exact match nahi mila.", "CONTROL_UNAVAILABLE")
+        await before.click()
+        try:
+            await after.wait_for(state="visible", timeout=3000)
+        except Exception:
+            return _failed(f"Discord {action} change verify nahi hua.", "STATE_UNVERIFIED")
+        return {"success": True, "verified": True, "message": f"Discord {action} {'on' if desired else 'off'} kar diya."}
+    disconnect = page.get_by_role("button", name=re.compile(r"^(Disconnect|Disconnect from voice)$", re.I)).filter(visible=True)
+    if action == "disconnect":
+        if await disconnect.count() == 0:
+            return {"success": True, "verified": True, "message": "Discord voice connection active nahi hai."}
+        if await disconnect.count() != 1:
+            return _failed("Discord disconnect control ambiguous hai.")
+        await disconnect.click()
+        try:
+            await disconnect.wait_for(state="hidden", timeout=3000)
+        except Exception:
+            return _failed("Discord disconnect verify nahi hua.", "STATE_UNVERIFIED")
+        return {"success": True, "verified": True, "message": "Discord voice disconnect kar diya."}
+    if action == "join":
+        if await disconnect.count():
+            return _failed("Discord already voice se connected hai. Channel switch pehle explicitly bolo.", "ALREADY_CONNECTED")
+        exact = page.get_by_role("link", name=re.compile(rf"^{re.escape(channel)}(?:,?\s+voice channel)?$", re.I)).filter(visible=True)
+        if await exact.count() != 1:
+            return _failed("Exact unique visible voice channel nahi mila. Server/channel kholkar naam do.", "CHANNEL_NOT_RESOLVED")
+        await exact.click()
+        try:
+            await disconnect.wait_for(state="visible", timeout=5000)
+        except Exception:
+            return _failed("Voice channel attempt hua, connection controls verify nahi hue.", "STATE_UNVERIFIED")
+        return {"success": True, "verified": True, "message": f"Discord voice channel '{channel}' ke connection controls active hain."}
+    return _failed("Unsupported Discord control.")
 
 
 class DiscordProvider(SocialPlatformProvider):
-    """Full Action Automation Provider for Discord (Native Desktop + Discord Web CDP)."""
-
     def __init__(self):
         super().__init__("Discord")
-        self.muted = False
-        self.deafened = False
-        self.active_voice_channel = None
 
-    def open(self, mode: str = "auto") -> Dict[str, Any]:
-        logger.info(f"[Discord] Opening Discord in mode '{mode}'...")
-        if mode == "native" or (mode == "auto" and is_discord_native_running()):
-            res = open_app(app_name="discord")
-            return {"success": True, "action": "open", "message": "Discord Desktop app opened.", "verified": True, "status": "NATIVE_OPENED"}
-        
-        # Web fallback or explicit web
-        if is_cdp_active():
-            page = browser_automation_engine.run(browser_automation_engine.get_or_open_page("discord.com", "https://discord.com/app"))
-            return {"success": True, "action": "open", "message": "Discord Web opened in controlled Chrome browser.", "verified": True, "status": "WEB_OPENED"}
-        
-        res = open_app(app_name="discord")
-        return {"success": True, "action": "open", "message": res, "verified": True, "status": "OPENED"}
+    def open(self, mode="auto"):
+        from actions.open_app import open_app
+        result = open_app(app_name="discord", mode=mode)
+        if isinstance(result, dict):
+            return result
+        return {"success": False, "verified": False, "message": str(result)}
 
-    def join_voice(self, channel: str = "General") -> Dict[str, Any]:
-        logger.info(f"[Discord] Joining voice channel '{channel}'...")
-        # Auto-detect native vs web
-        if is_discord_native_running():
-            try:
-                # Use Win32 WScript.Shell AppActivate + hotkey send
-                ps_cmd = '$ws = New-Object -ComObject WScript.Shell; $ws.AppActivate("Discord"); Start-Sleep -Milliseconds 400; $ws.SendKeys("^k"); Start-Sleep -Milliseconds 300; $ws.SendKeys("!' + channel + '"); Start-Sleep -Milliseconds 300; $ws.SendKeys("{ENTER}")'
-                subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True, timeout=5)
-                self.active_voice_channel = channel
-                return {
-                    "success": True,
-                    "action": "join_voice",
-                    "channel": channel,
-                    "message": f"Connected to Discord voice channel '{channel}'.",
-                    "verified": True,
-                    "status": "VOICE_CONNECTED"
-                }
-            except Exception as e:
-                logger.warning(f"[Discord] Native voice join failed: {e}")
+    def _control(self, action, desired=True, channel="General"):
+        from actions.browser_automation import browser_automation_engine, ensure_cdp_chrome
+        from actions.social_chat import _failed
+        ready = ensure_cdp_chrome("https://discord.com/channels/@me")
+        if not ready.get("success"):
+            return _failed(ready.get("message", "Controlled browser unavailable."))
+        async def run():
+            page = await browser_automation_engine.get_or_open_page("discord.com", "https://discord.com/channels/@me")
+            return await execute_discord_control(page, action, desired, channel)
+        try:
+            return browser_automation_engine.run(run(), timeout=20)
+        except Exception as exc:
+            return _failed(f"Discord control complete nahi hua: {str(exc)[:120]}")
 
-        # Web CDP fallback
-        if is_cdp_active():
-            async def _web_join():
-                page = await browser_automation_engine.get_or_open_page("discord.com", "https://discord.com/app")
-                # Look for channel selector or general
-                elem = await page.query_selector(f"a[aria-label*='{channel}'], div[data-list-item-id*='{channel.lower()}']")
-                if elem:
-                    await elem.click()
-                    return True
-                return False
+    def join_voice(self, channel="General"):
+        return self._control("join", channel=channel)
 
-            ok = browser_automation_engine.run(_web_join())
-            if ok:
-                self.active_voice_channel = channel
-                return {"success": True, "action": "join_voice", "channel": channel, "message": f"Connected to Discord Web voice channel '{channel}'.", "verified": True, "status": "VOICE_CONNECTED"}
+    def disconnect_voice(self):
+        return self._control("disconnect")
 
-        self.active_voice_channel = channel
-        return {"success": True, "action": "join_voice", "channel": channel, "message": f"Discord voice channel '{channel}' joined.", "verified": True, "status": "VOICE_CONNECTED"}
+    def mute(self, mute=True):
+        return self._control("mute", desired=mute)
 
-    def disconnect_voice(self) -> Dict[str, Any]:
-        logger.info("[Discord] Disconnecting from voice channel...")
-        if is_discord_native_running():
-            try:
-                # Hotkey Ctrl+Shift+D or AppActivate disconnect
-                ps_cmd = '$ws = New-Object -ComObject WScript.Shell; $ws.AppActivate("Discord"); Start-Sleep -Milliseconds 300; $ws.SendKeys("^+d")'
-                subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True, timeout=4)
-            except Exception:
-                pass
+    def deafen(self, deafen=True):
+        return self._control("deafen", desired=deafen)
 
-        self.active_voice_channel = None
-        return {
-            "success": True,
-            "action": "disconnect_voice",
-            "message": "Disconnected from Discord voice channel.",
-            "verified": True,
-            "status": "VOICE_DISCONNECTED"
-        }
+    def send_message(self, target, message, force_send=False):
+        from actions.social_chat import social_chat
+        return social_chat({"platform": "discord", "action": "send", "recipient": target, "message_text": message})
 
-    def mute(self, mute: bool = True) -> Dict[str, Any]:
-        logger.info(f"[Discord] Setting microphone mute state to {mute}...")
-        self.muted = mute
-        if is_discord_native_running():
-            try:
-                # Ctrl+Shift+M toggles mute in Discord
-                ps_cmd = '$ws = New-Object -ComObject WScript.Shell; $ws.AppActivate("Discord"); Start-Sleep -Milliseconds 200; $ws.SendKeys("^+m")'
-                subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True, timeout=4)
-            except Exception:
-                pass
+    def read_messages(self, target=""):
+        from actions.social_chat import social_chat
+        return social_chat({"platform": "discord", "action": "read", "recipient": target})
 
-        status_str = "Discord mic muted." if mute else "Discord mic unmuted."
-        return {
-            "success": True,
-            "action": "mute",
-            "muted": mute,
-            "message": status_str,
-            "verified": True,
-            "status": "MUTED" if mute else "UNMUTED"
-        }
-
-    def deafen(self, deafen: bool = True) -> Dict[str, Any]:
-        logger.info(f"[Discord] Setting deafen state to {deafen}...")
-        self.deafened = deafen
-        if is_discord_native_running():
-            try:
-                # Ctrl+Shift+D toggles deafen in Discord
-                ps_cmd = '$ws = New-Object -ComObject WScript.Shell; $ws.AppActivate("Discord"); Start-Sleep -Milliseconds 200; $ws.SendKeys("^+d")'
-                subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True, timeout=4)
-            except Exception:
-                pass
-
-        status_str = "Discord deafened." if deafen else "Discord undeafened."
-        return {
-            "success": True,
-            "action": "deafen",
-            "deafened": deafen,
-            "message": status_str,
-            "verified": True,
-            "status": "DEAFENED" if deafen else "UNDEAFENED"
-        }
-
-    def send_message(self, target: str, message: str, force_send: bool = False) -> Dict[str, Any]:
-        logger.info(f"[Discord] Sending message to '{target}': {message}")
-        return {
-            "success": True,
-            "action": "send_message",
-            "target": target,
-            "message_text": message,
-            "message": f"Discord message sent to '{target}'.",
-            "verified": True,
-            "status": "SENT_VERIFIED"
-        }
-
-    def read_messages(self, target: str = "") -> Dict[str, Any]:
-        logger.info(f"[Discord] Reading visible messages for '{target}'...")
-        return {
-            "success": True,
-            "action": "read_messages",
-            "target": target or "General",
-            "messages": ["Rahul: Meeting starts in 5 minutes.", "Alex: Got it."],
-            "message": "Discord messages retrieved.",
-            "verified": True,
-            "status": "MESSAGES_READ"
-        }
+    def call(self, target, call_type="voice", confirm_call=False):
+        if not confirm_call:
+            return {"success": False, "verified": False, "requires_confirmation": True, "message": "Exact Discord call instruction confirm karo."}
+        from actions.social_chat import social_chat
+        return social_chat({"platform": "discord", "action": "call", "recipient": target, "call_type": call_type})
 
 
 discord_provider = DiscordProvider()

@@ -1,0 +1,54 @@
+{
+  "INTENT_CLASSIFICATION": {
+    "passed": true,
+    "detail": "All 5 app-open intents classified correctly"
+  },
+  "NOTEPAD": {
+    "passed": true,
+    "detail": "success=True, verified=True, process_found=True (notepad.exe)"
+  },
+  "CALCULATOR": {
+    "passed": true,
+    "detail": "success=True, process_found=True (calculatorapp.exe)"
+  },
+  "FILE_EXPLORER": {
+    "passed": true,
+    "detail": "success=True, process_found=True"
+  },
+  "CHROME": {
+    "passed": true,
+    "detail": "success=True, process_found=True (chrome.exe)"
+  },
+  "WHATSAPP": {
+    "passed": true,
+    "detail": "success=True, process_found=True, window_found=False"
+  },
+  "INVALID_APP_GRACEFUL_FAILURE": {
+    "passed": true,
+    "detail": "success=False, msg='I couldn't find an installed application matching 'XYZ Super Fake App 9000'.'"
+  },
+  "INVALID_APP_RECOVERY": {
+    "passed": true,
+    "detail": "Notepad launched successfully after invalid app: True"
+  },
+  "SYNTHETIC_PIPELINE": {
+    "passed": true,
+    "detail": "Pipeline success=True, process_found=True, msg='Opened Notepad.'"
+  },
+  "FOLLOW_UP_CONTEXT": {
+    "passed": true,
+    "detail": "last_app=notepad, last_target=Notepad, last_action=open_app"
+  },
+  "DUPLICATE_EXECUTION": {
+    "passed": true,
+    "detail": "Commands issued: 1 (expected 1), command_id=CMD-00003"
+  },
+  "THREAD_SAFETY": {
+    "passed": true,
+    "detail": "Errors: 0"
+  },
+  "VERIFICATION_ENGINE": {
+    "passed": true,
+    "detail": "verified=True, type=process"
+  }
+}

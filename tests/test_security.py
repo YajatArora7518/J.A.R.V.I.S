@@ -7,7 +7,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from core.security import default_security_manager, RiskLevel, ActionConfirmationNeeded
+from core.security import SecurityManager, default_security_manager, RiskLevel, ActionConfirmationNeeded
+from core.tool_registry import Tool, ToolRegistry
 
 
 def test_security_classification() -> tuple[bool, str]:
@@ -39,7 +40,20 @@ def test_security_classification() -> tuple[bool, str]:
         if not confirmed:
             return False, "HIGH risk operation did not trigger ActionConfirmationNeeded"
 
-        return True, "Risk classification (LOW/MED/HIGH/CRIT) and security policies verified"
+        # 3. Registry must honor a tool's declared risk level and fail closed.
+        registry = ToolRegistry(security_manager=SecurityManager())
+        registry.register(Tool(
+            name="declared_high_risk",
+            description="Test high-risk tool",
+            parameters={},
+            handler=lambda: "should not run",
+            risk_level=RiskLevel.HIGH,
+        ))
+        denied = registry.execute_tool("declared_high_risk", {})
+        if denied.success or "confirmation" not in denied.message.lower():
+            return False, "Registry allowed a declared HIGH-risk tool without confirmation"
+
+        return True, "Risk classification, registry risk propagation, and fail-closed security verified"
     except Exception as e:
         return False, f"Security test exception: {e}"
 

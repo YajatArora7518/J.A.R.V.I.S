@@ -1,0 +1,80 @@
+{
+  "pid": 29684,
+  "timestamp": "2026-09-11 22:02:14",
+  "html_path": "C:\\Users\\yajat\\OneDrive\\Desktop\\JARVIS M\\JARVIS MAIN\\assets\\jarvis_holographic_ui.html",
+  "html_mtime": "2026-09-11 21:52:12",
+  "html_hash": "90ab2e3804a608d90964da47c2c0e7b1bdf7ac8d7feca8a4bc5782bc90621b50",
+  "screenshot_path": "C:\\Users\\yajat\\OneDrive\\Desktop\\JARVIS M\\JARVIS MAIN\\live_jarvis_window.png",
+  "screenshot_size": [
+    1440,
+    880
+  ],
+  "js_diagnostics": {
+    "canvas": {
+      "boundingClientRect": {
+        "height": 880,
+        "left": 0,
+        "top": 0,
+        "width": 1440
+      },
+      "computedDisplay": "block",
+      "computedOpacity": "1",
+      "computedVisibility": "visible",
+      "computedZIndex": "auto",
+      "exists": true,
+      "height": 880,
+      "width": 1440
+    },
+    "container": {
+      "computedDisplay": "block",
+      "computedOpacity": "1",
+      "computedVisibility": "visible",
+      "computedZIndex": "1",
+      "dimensions": {
+        "height": 880,
+        "left": 0,
+        "top": 0,
+        "width": 1440
+      },
+      "exists": true
+    },
+    "three": {
+      "camera": {
+        "aspect": 1.6363636363636365,
+        "far": 150,
+        "near": 0.1,
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 12.8
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "coreGroup": {
+        "attachedToScene": true,
+        "childrenCount": 13,
+        "exists": true,
+        "position": {
+          "x": -1.7867125994375719,
+          "y": 0.715208490731895,
+          "z": 0
+        },
+        "scale": {
+          "x": 0.5264704713406321,
+          "y": 0.5264704713406321,
+          "z": 0.5264704713406321
+        },
+        "visible": true
+      },
+      "lines": 769,
+      "points": 614,
+      "renderCalls": 59,
+      "sceneChildrenLength": 1,
+      "triangles": 2644
+    }
+  }
+}

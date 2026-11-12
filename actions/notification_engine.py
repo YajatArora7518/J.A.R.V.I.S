@@ -5,6 +5,8 @@
 import re
 import time
 import logging
+import hashlib
+import threading
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
 
@@ -92,12 +94,14 @@ class NotificationAggregator:
         if cls._instance is None:
             cls._instance = super(NotificationAggregator, cls).__new__(cls)
             cls._instance._notifications: List[UniversalNotification] = []
+            cls._instance._lock = threading.RLock()
             cls._instance._initialized = True
         return cls._instance
 
     def add_notification(self, service_id: str, service_name: str, sender: str, title: str, message: str, platform: str = "windows") -> UniversalNotification:
         priority = ImportanceFilter.classify(service_id, sender, title, message)
-        notif_id = f"{service_id}_{sender}_{int(time.time())}"
+        digest = hashlib.sha256(f"{service_id}\0{sender}\0{title}\0{message}\0{platform}".encode()).hexdigest()
+        notif_id = digest
         
         notif = UniversalNotification(
             id=notif_id,
@@ -110,37 +114,35 @@ class NotificationAggregator:
             priority=priority,
             is_read=False
         )
-        self._notifications.append(notif)
+        with self._lock:
+            for existing in self._notifications:
+                if existing.id == digest and time.time() - existing.timestamp < 600:
+                    return existing
+            self._notifications[:] = [item for item in self._notifications if time.time() - item.timestamp < 86400][-199:]
+            self._notifications.append(notif)
         logger.info(f"[NotificationEngine] Aggregated notification: [{priority}] {service_name} from '{sender}': {message[:30]}")
         return notif
 
     def fetch_recent_notifications(self, min_priority: str = "MEDIUM") -> List[UniversalNotification]:
         """Collects active notifications from system & browser."""
-        # Query unread messages from local automation providers if available
-        try:
-            from actions.whatsapp_automation import whatsapp_read_messages
-            wa_res = whatsapp_read_messages()
-            if wa_res.get("success") and wa_res.get("messages"):
-                for m in wa_res.get("messages", []):
-                    sender = m.get("sender", "WhatsApp Contact")
-                    text = m.get("message", "New message")
-                    self.add_notification("whatsapp", "WhatsApp", sender, "WhatsApp Message", text, "windows")
-        except Exception:
-            pass
-
+        # Visible chat messages are not evidence of unread notifications.
+        # Only explicit captured events belong in this aggregator.
         priority_levels = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
         min_level = priority_levels.get(min_priority.upper(), 2)
 
-        return [n for n in self._notifications if priority_levels.get(n.priority, 1) >= min_level]
+        with self._lock:
+            return [n for n in self._notifications if not n.is_read and time.time() - n.timestamp < 86400 and priority_levels.get(n.priority, 1) >= min_level]
 
     def get_summary(self, only_important: bool = True) -> Dict[str, Any]:
         notifs = self.fetch_recent_notifications(min_priority="MEDIUM" if only_important else "LOW")
         
         if not notifs:
             return {
-                "success": True,
+                "success": False,
+                "verified": False,
+                "status": "NOTIFICATION_SOURCE_UNAVAILABLE",
                 "count": 0,
-                "message": "Boss, you have no new important notifications or unread messages.",
+                "message": "Live notifications ka access connected nahi hai. WhatsApp ki visible chat padhne ki command de sakte ho.",
                 "notifications": []
             }
 
@@ -156,9 +158,11 @@ class NotificationAggregator:
         msg_str = f"Boss, you have {len(notifs)} important notifications: " + "; ".join(summary_parts) + "."
         return {
             "success": True,
+            "verified": True,
             "count": len(notifs),
             "high_priority_count": high_count,
             "message": msg_str,
+            "source": "captured_events",
             "notifications": [n.to_dict() for n in notifs]
         }
 

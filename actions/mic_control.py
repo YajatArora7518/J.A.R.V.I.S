@@ -143,8 +143,9 @@ def handle_mic_command(text: str, ui_instance: Optional[Any] = None) -> Dict[str
             "status": "SYSTEM_MIC_OFF" if not target_state else "SYSTEM_MIC_ON"
         }
 
-    # 4. DEFAULT MIC CONTROL (Controls JARVIS mic if turn_off or turn_on specified; asks clarification for ambiguous queries)
-    if is_turn_off or is_turn_on:
+    # 4. DEFAULT MIC CONTROL (Controls JARVIS mic if turn_off or turn_on specified AND mic context exists; asks clarification for ambiguous queries)
+    has_mic_mention = any(k in lower_text for k in ["mic", "microphone", "listen", "sunna", "awaz", "voice"])
+    if (is_turn_off or is_turn_on) and has_mic_mention:
         target_state = not is_turn_off
         set_jarvis_mic_enabled(target_state, ui_instance=ui_instance)
         state_str = "JARVIS microphone muted." if not target_state else "JARVIS microphone unmuted."

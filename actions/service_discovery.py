@@ -128,12 +128,7 @@ class UniversalServiceRegistry:
                     call_sup = False
 
                     if s_id == "whatsapp":
-                        caps.extend(["READ_VISIBLE_MESSAGES", "READ_UNREAD_MESSAGES", "SEND_MESSAGE", "MAKE_CALL"])
-                        read_sup = True
-                        send_sup = True
-                        call_sup = True
-                    elif s_id in ["discord", "telegram"]:
-                        caps.extend(["READ_VISIBLE_MESSAGES", "READ_UNREAD_MESSAGES", "SEND_MESSAGE"])
+                        caps.extend(["READ_VISIBLE_MESSAGES", "SEND_MESSAGE"])
                         read_sup = True
                         send_sup = True
 
@@ -142,8 +137,8 @@ class UniversalServiceRegistry:
                         name=found_desc.display_name,
                         platform="windows",
                         installed=True,
-                        logged_in=True,  # Local app present
-                        automation_supported=True,
+                        logged_in=False,  # Installation does not prove sign-in.
+                        automation_supported=s_id == "whatsapp",
                         read_supported=read_sup,
                         send_supported=send_sup,
                         call_supported=call_sup,
@@ -166,23 +161,38 @@ class UniversalServiceRegistry:
         ]
 
         for s_id, s_name, url, caps in chrome_services:
-            if s_id not in discovered:
+            from actions.browser_automation import browser_automation_engine
+            authenticated = False
+            if s_id in ("whatsapp", "discord", "instagram", "gmail"):
+                authenticated = bool(browser_automation_engine.check_service_auth_sync(s_id).get("authenticated"))
+            supported = s_id in ("whatsapp", "discord", "instagram", "youtube")
+            # Use only capabilities implemented by our real handlers.
+            supported_caps = ["OPEN_WEBSITE"]
+            if authenticated and s_id in ("whatsapp", "discord", "instagram"):
+                supported_caps += ["READ_VISIBLE_MESSAGES", "SEND_MESSAGE", "MAKE_CALL"]
+            if s_id == "youtube":
+                supported_caps += ["PLAY_MEDIA", "PAUSE_MEDIA"]
+            if s_id == "instagram" and authenticated:
+                supported_caps += ["LIKE"]
+            if s_id not in discovered or authenticated:
                 discovered[s_id] = ServiceDescriptor(
                     service_id=s_id,
                     name=s_name,
                     platform="chrome_web",
                     installed=True,
-                    logged_in=True,
-                    automation_supported=True,
-                    read_supported="READ_UNREAD_MESSAGES" in caps or "READ_NOTIFICATIONS" in caps,
-                    send_supported="SEND_MESSAGE" in caps,
-                    media_supported="PLAY_MEDIA" in caps,
-                    capabilities=caps,
+                    logged_in=authenticated,
+                    automation_supported=supported and (authenticated or s_id == "youtube"),
+                    read_supported="READ_VISIBLE_MESSAGES" in supported_caps,
+                    send_supported="SEND_MESSAGE" in supported_caps,
+                    call_supported="MAKE_CALL" in supported_caps,
+                    media_supported="PLAY_MEDIA" in supported_caps,
+                    capabilities=supported_caps,
                 )
 
         # 3. Discover Android Devices via ADB / Gateway
         adb_path = shutil.which("adb")
-        if adb_path:
+        from actions.mobile_pc_gateway import mobile_pc_gateway
+        if adb_path and mobile_pc_gateway.is_android_online():
             android_caps = ["OPEN_APP", "READ_NOTIFICATIONS", "SEND_SMS", "READ_SMS", "MAKE_CALL", "READ_CALL_LOG"]
             discovered["sms"] = ServiceDescriptor(
                 service_id="sms",

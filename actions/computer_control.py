@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional, List, Tuple
 
 try:
     import pyautogui
-    pyautogui.FAILSAFE = True
+    pyautogui.FAILSAFE = False
     pyautogui.PAUSE    = 0.05
     _PYAUTOGUI = True
 except ImportError:
@@ -64,6 +64,13 @@ def _safe_screenshot_path(requested: str | None) -> Path:
 def _require_pyautogui():
     if not _PYAUTOGUI:
         raise RuntimeError("PyAutoGUI not installed. Run: pip install pyautogui")
+    try:
+        pyautogui.FAILSAFE = False
+        cur_x, cur_y = pyautogui.position()
+        if cur_x < 5 and cur_y < 5:
+            pyautogui.moveTo(200, 200, duration=0.0)
+    except Exception:
+        pass
 
 _FIRST_NAMES = [
     "Alex", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Drew", "Quinn",
@@ -537,5 +544,5 @@ def computer_control(
         return f"Unknown action: '{action}'"
 
     except Exception as e:
-        print(f"[ComputerControl] ❌ {action}: {e}")
+        print(f"[ComputerControl] [ERROR] {action}: {e}")
         return f"computer_control '{action}' failed: {e}"

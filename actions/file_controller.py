@@ -2,6 +2,7 @@
 # File management — create, delete, move, rename, list, find, organize
 
 import shutil
+import os
 from pathlib import Path
 from datetime import datetime
 import send2trash
@@ -13,6 +14,35 @@ def _get_desktop() -> Path:
 
 def _get_downloads() -> Path:
     return Path.home() / "Downloads"
+
+
+def _allowed_roots() -> tuple[Path, ...]:
+    configured = os.environ.get("JARVIS_ALLOWED_PATHS", "")
+    if configured.strip():
+        candidates = [Path(item.strip()).expanduser() for item in configured.split(os.pathsep) if item.strip()]
+    else:
+        home = Path.home()
+        candidates = [
+            home / folder
+            for folder in ("Desktop", "Downloads", "Documents", "Pictures", "Music", "Videos")
+        ]
+        candidates.append(Path(__file__).resolve().parent.parent)
+
+    return tuple(path.resolve(strict=False) for path in candidates)
+
+
+def _guard_path(path: str | Path) -> Path:
+    target = Path(path).expanduser().resolve(strict=False)
+    for root in _allowed_roots():
+        try:
+            target.relative_to(root)
+            return target
+        except ValueError:
+            continue
+    raise PermissionError(
+        f"Path is outside JARVIS allowed folders: {target}. "
+        "Configure JARVIS_ALLOWED_PATHS to add an explicit trusted folder."
+    )
 
 
 def _resolve_path(raw: str) -> Path:
@@ -47,7 +77,7 @@ def _format_size(bytes_size: int) -> str:
 def list_files(path: str = "desktop", show_hidden: bool = False) -> str:
     """Lists files and folders in a directory."""
     try:
-        target = _resolve_path(path)
+        target = _guard_path(_resolve_path(path))
         if not target.exists():
             return f"Path not found: {target}"
         if not target.is_dir():
@@ -77,7 +107,7 @@ def list_files(path: str = "desktop", show_hidden: bool = False) -> str:
 def create_file(path: str, content: str = "") -> str:
     """Creates a new file with optional content."""
     try:
-        target = Path(path).expanduser()
+        target = _guard_path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
         return f"File created: {target.name}"
@@ -88,7 +118,7 @@ def create_file(path: str, content: str = "") -> str:
 def create_folder(path: str) -> str:
     """Creates a new folder (and parent folders if needed)."""
     try:
-        target = Path(path).expanduser()
+        target = _guard_path(path)
         target.mkdir(parents=True, exist_ok=True)
         return f"Folder created: {target}"
     except Exception as e:
@@ -129,14 +159,14 @@ def delete_file(path: str, confirm: bool = True) -> str:
 def move_file(source: str, destination: str) -> str:
     """Moves a file or folder to a new location."""
     try:
-        src  = Path(source).expanduser()
-        dst  = _resolve_path(destination)
+        src  = _guard_path(source)
+        dst  = _guard_path(_resolve_path(destination))
 
         if not src.exists():
             return f"Source not found: {source}"
 
         if dst.is_dir():
-            dst = dst / src.name
+            dst = _guard_path(dst / src.name)
 
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(src), str(dst))
@@ -149,14 +179,14 @@ def move_file(source: str, destination: str) -> str:
 def copy_file(source: str, destination: str) -> str:
     """Copies a file or folder."""
     try:
-        src = Path(source).expanduser()
-        dst = _resolve_path(destination)
+        src = _guard_path(source)
+        dst = _guard_path(_resolve_path(destination))
 
         if not src.exists():
             return f"Source not found: {source}"
 
         if dst.is_dir():
-            dst = dst / src.name
+            dst = _guard_path(dst / src.name)
 
         dst.parent.mkdir(parents=True, exist_ok=True)
 
@@ -174,8 +204,9 @@ def copy_file(source: str, destination: str) -> str:
 def rename_file(path: str, new_name: str) -> str:
     """Renames a file or folder."""
     try:
-        target   = Path(path).expanduser()
+        target   = _guard_path(path)
         new_path = target.parent / new_name
+        new_path = _guard_path(new_path)
 
         if not target.exists():
             return f"Not found: {path}"
@@ -192,7 +223,7 @@ def rename_file(path: str, new_name: str) -> str:
 def read_file(path: str, max_chars: int = 3000) -> str:
     """Reads and returns the content of a text file."""
     try:
-        target = Path(path).expanduser()
+        target = _guard_path(path)
         if not target.exists():
             return f"File not found: {path}"
         if not target.is_file():
@@ -210,7 +241,7 @@ def read_file(path: str, max_chars: int = 3000) -> str:
 def write_file(path: str, content: str, append: bool = False) -> str:
     """Writes or appends content to a file."""
     try:
-        target = Path(path).expanduser()
+        target = _guard_path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         mode = "a" if append else "w"
         with open(target, mode, encoding="utf-8") as f:
@@ -228,7 +259,7 @@ def find_files(name: str = "", extension: str = "", path: str = "home",
     Example: find_files(extension=".pdf", path="documents")
     """
     try:
-        search_path = _resolve_path(path)
+        search_path = _guard_path(_resolve_path(path))
         if not search_path.exists():
             return f"Search path not found: {path}"
 
@@ -257,7 +288,7 @@ def find_files(name: str = "", extension: str = "", path: str = "home",
 def get_largest_files(path: str = "home", count: int = 10) -> str:
     """Returns the largest files in a directory."""
     try:
-        search_path = _resolve_path(path)
+        search_path = _guard_path(_resolve_path(path))
         if not search_path.exists():
             return f"Path not found: {path}"
 
@@ -288,7 +319,7 @@ def get_largest_files(path: str = "home", count: int = 10) -> str:
 def get_disk_usage(path: str = "home") -> str:
     """Returns disk usage information."""
     try:
-        target = _resolve_path(path)
+        target = _guard_path(_resolve_path(path))
         usage  = shutil.disk_usage(target)
         total  = _format_size(usage.total)
         used   = _format_size(usage.used)
@@ -367,7 +398,7 @@ def organize_desktop() -> str:
 def get_file_info(path: str) -> str:
     """Returns detailed information about a file."""
     try:
-        target = Path(path).expanduser()
+        target = _guard_path(path)
         if not target.exists():
             return f"Not found: {path}"
 
@@ -401,8 +432,8 @@ def file_controller(
     def _full_path(p: str, n: str) -> str:
         base = _resolve_path(p)
         if n:
-            return str(base / n)
-        return str(base)
+            return str(_guard_path(base / n))
+        return str(_guard_path(base))
 
     result = "Unknown action."
 

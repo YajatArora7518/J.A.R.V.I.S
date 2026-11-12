@@ -59,18 +59,7 @@ def resolve_app_or_web_target(target_name: str) -> Dict[str, Any]:
             "app_info": app_info
         }
 
-    # Ambiguous prompt check when both native and web are available
-    if has_native and has_web and not explicit_app and not explicit_web:
-        return {
-            "status": "AMBIGUOUS_NATIVE_AND_WEB",
-            "app_canonical": app_canonical,
-            "has_native": True,
-            "has_web": True,
-            "web_url": app_info.get("web_url"),
-            "prompt": f"Boss, {app_canonical} Desktop app aur {app_canonical} Web dono available hain. Kaunsa open karun?"
-        }
-
-    # Default fallback priorities: Native App required for Open command
+    # Opening an installed app is unambiguous; use its web version if absent.
     if has_native:
         return {
             "status": "NATIVE_AVAILABLE",
@@ -79,6 +68,9 @@ def resolve_app_or_web_target(target_name: str) -> Dict[str, Any]:
             "app_info": app_info
         }
 
+    if has_web and not explicit_app:
+        return {"status": "WEB_AVAILABLE", "app_canonical": app_canonical,
+                "launch_mode": "web", "web_url": app_info["web_url"], "app_info": app_info}
     return {
         "status": "APP_NOT_FOUND",
         "app_canonical": app_canonical,

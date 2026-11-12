@@ -7,9 +7,11 @@ import time
 import json
 import asyncio
 import logging
+import inspect
 import threading
 import subprocess
 import urllib.request
+from urllib.parse import urlparse
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 
@@ -75,7 +77,7 @@ def ensure_cdp_chrome(target_url: str = "https://web.whatsapp.com/") -> Dict[str
     cmd = [
         chrome_bin,
         f"--remote-debugging-port={CDP_PORT}",
-        "--remote-allow-origins=*",
+        "--remote-debugging-address=127.0.0.1",
         f"--user-data-dir={JARVIS_CDP_DIR}",
         f"--profile-directory={target_dir}",
         target_url
@@ -157,20 +159,35 @@ class BrowserAutomationEngine:
         self._loop = None
         self._thread = None
         self._ready = threading.Event()
+        self._start_lock = threading.Lock()
+        self._startup_error = None
         self._playwright = None
         self._browser = None
+        self._service_pages = {}
 
     def start(self):
-        if self._thread and self._thread.is_alive():
-            return
-        self._thread = threading.Thread(target=self._run_loop, daemon=True, name="BrowserAutomationThread")
-        self._thread.start()
-        self._ready.wait(timeout=15)
+        with self._start_lock:
+            if not self._thread or not self._thread.is_alive():
+                self._ready.clear()
+                self._startup_error = None
+                self._thread = threading.Thread(target=self._run_loop, daemon=True, name="BrowserAutomationThread")
+                self._thread.start()
+            if not self._ready.wait(timeout=15):
+                raise RuntimeError('Browser automation initialize timeout hua.')
+            if self._startup_error:
+                raise RuntimeError('Browser automation initialize nahi hua.') from self._startup_error
 
     def _run_loop(self):
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
-        self._loop.run_until_complete(self._init())
+        try:
+            self._loop.run_until_complete(self._init())
+        except Exception as exc:
+            self._startup_error = exc
+            self._ready.set()
+            self._loop.close()
+            logger.error('Browser automation initialization failed: %s', type(exc).__name__)
+            return
         self._ready.set()
         self._loop.run_forever()
 
@@ -178,21 +195,34 @@ class BrowserAutomationEngine:
         self._playwright = await async_playwright().start()
 
     def run(self, coro, timeout: int = 45):
-        if not self._loop:
-            self.start()
+        try:
+            thread = getattr(self, '_thread', None)
+            if not self._loop or getattr(self, '_startup_error', None) or (thread and (not thread.is_alive() or not self._ready.is_set())):
+                self.start()
+        except Exception:
+            if inspect.iscoroutine(coro):
+                coro.close()  # Nothing was submitted; don't leak an unawaited task.
+            raise
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return future.result(timeout=timeout)
+        try:
+            return future.result(timeout=timeout)
+        except TimeoutError:
+            future.cancel()  # A failed request must not navigate/send later.
+            raise
 
-    async def _get_cdp_browser(self):
+    async def _get_cdp_browser(self, allow_launch=True):
+        if self._browser and self._browser.is_connected():
+            return self._browser
         if not self._playwright:
             self._playwright = await async_playwright().start()
-        start_res = ensure_cdp_chrome()
+        start_res = ensure_cdp_chrome() if allow_launch else {"success": is_cdp_active(), "message": "No existing controlled browser."}
         if not start_res.get("success"):
             raise RuntimeError(f"Chrome CDP port {CDP_PORT} is not available: {start_res.get('message')}")
         
         for attempt in range(1, 3):
             try:
                 browser = await self._playwright.chromium.connect_over_cdp(CDP_URL)
+                self._browser = browser
                 _log_cdp("Browser attached")
                 return browser
             except Exception as e:
@@ -203,27 +233,35 @@ class BrowserAutomationEngine:
         _log_cdp("Browser attach failed after 2 attempts")
         raise RuntimeError(f"Failed to connect to CDP endpoint on port {CDP_PORT} after 2 attempts.")
 
-    async def get_or_open_page(self, url_pattern: str, target_url: str) -> Page:
-        browser = await self._get_cdp_browser()
+    async def get_or_open_page(self, url_pattern: str, target_url: str, allow_launch: bool = True) -> Page:
+        browser = await self._get_cdp_browser(allow_launch=allow_launch)
         contexts = browser.contexts
         context = contexts[0] if contexts else await browser.new_context()
 
+        def belongs_to_service(page):
+            host = (urlparse(page.url).hostname or "").lower()
+            domain = url_pattern.lower()
+            return host == domain or host.endswith("." + domain)
         for p in context.pages:
-            if url_pattern.lower() in p.url.lower():
+            if belongs_to_service(p):
                 _log_cdp("WhatsApp tab found")
+                self._service_pages[url_pattern] = p
                 await p.bring_to_front()
                 return p
 
-        # If existing page not found, navigate top page or open new page
-        if context.pages:
-            page = context.pages[0]
-            await page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
-            await page.bring_to_front()
-            return page
-        else:
-            page = await context.new_page()
-            await page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
-            return page
+        previous = self._service_pages.get(url_pattern)
+        if previous and not previous.is_closed():
+            # Reuse the service's tab after a login/marketing redirect.
+            await previous.goto(target_url, wait_until="domcontentloaded", timeout=30000)
+            await previous.bring_to_front()
+            return previous
+
+        # Preserve the user's existing tabs when opening a new service.
+        page = await context.new_page()
+        await page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
+        self._service_pages[url_pattern] = page
+        await page.bring_to_front()
+        return page
 
     async def find_element(
         self,
@@ -285,6 +323,7 @@ class BrowserAutomationEngine:
             return {"status": "SERVICE_UNAVAILABLE", "authenticated": False, "message": "Chrome CDP port 9222 not active."}
 
         patterns = {
+            "discord": ("discord.com", "https://discord.com/channels/@me"),
             "gmail": ("mail.google.com", "https://mail.google.com/"),
             "calendar": ("calendar.google.com", "https://calendar.google.com/"),
             "instagram": ("instagram.com", "https://www.instagram.com/"),
@@ -295,7 +334,18 @@ class BrowserAutomationEngine:
 
         pat, target = patterns[service]
         try:
-            page = await self.get_or_open_page(pat, target)
+            # Background awareness only examines existing tabs. It must never
+            # launch apps, navigate, steal focus or create repeated login tabs.
+            browser = await self._get_cdp_browser(allow_launch=False)
+            candidates = []
+            for context in browser.contexts:
+                for existing in context.pages:
+                    host = (urlparse(existing.url).hostname or "").lower()
+                    if host == pat or host.endswith("." + pat):
+                        candidates.append(existing)
+            if not candidates:
+                return {"status": "TAB_NOT_OPEN", "authenticated": False, "message": f"{service.capitalize()} is not open in the controlled browser."}
+            page = candidates[0]
             url = page.url.lower()
 
             if service == "gmail":
@@ -304,7 +354,7 @@ class BrowserAutomationEngine:
                 if "mail.google.com" in url:
                     # DOM check
                     inbox_el = await page.query_selector('div[role="main"], tr.zA, a[href*="#inbox"]')
-                    if inbox_el or "inbox" in url or "#inbox" in url:
+                    if inbox_el:
                         # Extract unread count if visible
                         unread_count = 0
                         title = await page.title()
@@ -326,7 +376,7 @@ class BrowserAutomationEngine:
                     return {"status": "AUTHENTICATION_REQUIRED", "authenticated": False, "message": "Google Calendar login required."}
                 if "calendar.google.com" in url:
                     cal_el = await page.query_selector('div[role="main"], div[data-calendar-id], div[data-eventid]')
-                    if cal_el or "calendar" in url:
+                    if cal_el:
                         return {
                             "status": "LIVE_VERIFIED",
                             "authenticated": True,
@@ -335,11 +385,11 @@ class BrowserAutomationEngine:
                         }
 
             elif service == "instagram":
-                if "login" in url or "accounts/login" in url:
+                if "/accounts/login" in urlparse(url).path or "/challenge" in urlparse(url).path:
                     return {"status": "AUTHENTICATION_REQUIRED", "authenticated": False, "message": "Instagram login required."}
                 if "instagram.com" in url:
                     ig_el = await page.query_selector('svg[aria-label="Home"], svg[aria-label="Direct"], a[href*="/direct/"], section._a83y')
-                    if ig_el or "instagram.com" in url:
+                    if ig_el:
                         return {
                             "status": "LIVE_VERIFIED",
                             "authenticated": True,
@@ -353,14 +403,20 @@ class BrowserAutomationEngine:
                     if qr_el:
                         return {"status": "AUTHENTICATION_REQUIRED", "authenticated": False, "message": "WhatsApp Web QR code scan required."}
                     chat_el = await page.query_selector('#pane-side, div[contenteditable="true"], span[data-icon="chat"]')
-                    if chat_el or "web.whatsapp.com" in url:
+                    if chat_el:
                         return {
                             "status": "LIVE_VERIFIED",
                             "authenticated": True,
                             "message": "WhatsApp Web active."
                         }
 
-            return {"status": "AUTHENTICATION_REQUIRED", "authenticated": False, "message": f"{service.capitalize()} authentication required."}
+            elif service == "discord":
+                if "/login" in url:
+                    return {"status": "AUTHENTICATION_REQUIRED", "authenticated": False, "message": "Controlled Discord browser login required."}
+                sidebar = await page.query_selector('[data-list-id="private-channels"], nav[aria-label="Servers sidebar"]')
+                if sidebar:
+                    return {"status": "LIVE_VERIFIED", "authenticated": True, "message": "Discord signed-in controls verified."}
+            return {"status": "AUTHENTICATION_REQUIRED", "authenticated": False, "message": f"{service.capitalize()} authentication required in the controlled JARVIS browser."}
         except Exception as ex:
             return {"status": "SERVICE_UNAVAILABLE", "authenticated": False, "error": str(ex)}
 

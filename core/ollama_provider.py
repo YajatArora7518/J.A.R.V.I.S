@@ -11,13 +11,15 @@ import platform
 import subprocess
 import urllib.request
 import urllib.error
+from core.conversation_style import CONVERSATION_STYLE
 from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger("JARVIS.Ollama")
 
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
 DEFAULT_STARK_MODEL = "fotiecodes/jarvis"
 DEFAULT_TOOL_MODEL = "gemma4:12b"
+DEFAULT_KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "60m")
 
 # Provider Status Constants
 OLLAMA_STARTING = "OLLAMA_STARTING"
@@ -38,16 +40,26 @@ _AVAIL_CACHE_TTL_OK: float = 10.0    # cache positive result for 10s
 _AVAIL_CACHE_TTL_FAIL: float = 5.0   # cache negative result for 5s (allows faster recovery detection)
 
 
+# Models list cache
+_MODELS_CACHE_RESULT: Optional[List[str]] = None
+_MODELS_CACHE_TIME: float = 0.0
+_MODELS_CACHE_TTL: float = 15.0
+
+
 def invalidate_ollama_cache() -> None:
     """Explicitly invalidate the availability cache (e.g. after restart attempt)."""
-    global _AVAIL_CACHE_RESULT, _AVAIL_CACHE_TIME
+    global _AVAIL_CACHE_RESULT, _AVAIL_CACHE_TIME, _MODELS_CACHE_RESULT, _MODELS_CACHE_TIME
     _AVAIL_CACHE_RESULT = None
     _AVAIL_CACHE_TIME = 0.0
+    _MODELS_CACHE_RESULT = None
+    _MODELS_CACHE_TIME = 0.0
 
 
 def is_ollama_available(base_url: str = OLLAMA_BASE_URL) -> bool:
     """Checks if local Ollama server is running and reachable. Results cached with short TTL."""
     global _AVAIL_CACHE_RESULT, _AVAIL_CACHE_TIME
+    if "localhost" in base_url:
+        base_url = base_url.replace("localhost", "127.0.0.1")
     now = time.time()
     if _AVAIL_CACHE_RESULT is not None:
         ttl = _AVAIL_CACHE_TTL_OK if _AVAIL_CACHE_RESULT else _AVAIL_CACHE_TTL_FAIL
@@ -64,13 +76,23 @@ def is_ollama_available(base_url: str = OLLAMA_BASE_URL) -> bool:
 
 
 def get_available_ollama_models(base_url: str = OLLAMA_BASE_URL) -> List[str]:
-    """Returns list of installed local Ollama models."""
+    """Returns list of installed local Ollama models with short TTL caching."""
+    global _MODELS_CACHE_RESULT, _MODELS_CACHE_TIME
+    if "localhost" in base_url:
+        base_url = base_url.replace("localhost", "127.0.0.1")
+    now = time.time()
+    if _MODELS_CACHE_RESULT is not None and (now - _MODELS_CACHE_TIME) < _MODELS_CACHE_TTL:
+        return _MODELS_CACHE_RESULT
+
     try:
-        req = urllib.request.urlopen(f"{base_url}/api/tags", timeout=2.0)
+        req = urllib.request.urlopen(f"{base_url}/api/tags", timeout=1.5)
         if req.status == 200:
             data = json.loads(req.read().decode("utf-8"))
             models = data.get("models", [])
-            return [m.get("name", "") for m in models]
+            names = [m.get("name", "") for m in models]
+            _MODELS_CACHE_RESULT = names
+            _MODELS_CACHE_TIME = now
+            return names
     except Exception as e:
         logger.debug(f"Failed to fetch Ollama models: {e}")
     return []
@@ -228,12 +250,16 @@ def generate_ollama_response(
     temperature: float = 0.7,
     base_url: str = OLLAMA_BASE_URL,
     auto_start: bool = True,
-    timeout: float = 60.0
+    timeout: float = 15.0,
+    num_predict: int = 128
 ) -> Dict[str, Any]:
     """
     Generates response from local Ollama model with hardened lifecycle.
     Defaults to 'fotiecodes/jarvis' or 'gemma4:12b' if installed.
     """
+    if "localhost" in base_url:
+        base_url = base_url.replace("localhost", "127.0.0.1")
+
     readiness = ensure_ollama_ready(base_url, required_model=model, auto_start=auto_start)
     if not readiness["ready"]:
         return {
@@ -261,14 +287,14 @@ def generate_ollama_response(
     payload = {
         "model": selected_model,
         "prompt": prompt,
-        "system": system_prompt or "You are JARVIS, Tony Stark's AI assistant. Be extremely concise (1-3 sentences), direct, and witty.",
+        "system": system_prompt or CONVERSATION_STYLE,
         "stream": False,
         "options": {
             "temperature": temperature,
-            "num_predict": 80,
-            "num_ctx": 1024
+            "num_predict": num_predict,
+              "num_ctx": 4096 if num_predict > 512 else 1024
         },
-        "keep_alive": "15m"
+        "keep_alive": DEFAULT_KEEP_ALIVE
     }
 
     t0 = time.time()
@@ -284,6 +310,11 @@ def generate_ollama_response(
             res_json = json.loads(resp.read().decode("utf-8"))
             response_text = res_json.get("response", "").strip()
             total_ms = int((time.time() - t0) * 1000)
+            try:
+                import core.ai_policy as ai_policy
+                ai_policy.record_local_ai_call(selected_model)
+            except Exception:
+                pass
             return {
                 "success": True,
                 "text": response_text,
@@ -383,14 +414,14 @@ class OllamaProvider:
         payload = {
             "model": target_model,
             "prompt": prompt,
-            "system": system_prompt or "You are JARVIS. Be concise, direct, and witty.",
+            "system": system_prompt or CONVERSATION_STYLE,
             "stream": True,
             "options": {
                 "temperature": temperature,
-                "num_predict": 80,
+                "num_predict": 96,
                 "num_ctx": 1024
             },
-            "keep_alive": "15m"
+            "keep_alive": DEFAULT_KEEP_ALIVE
         }
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
@@ -448,7 +479,7 @@ class OllamaProvider:
                 "temperature": 0.0,
                 "num_predict": 128
             },
-            "keep_alive": "15m"
+            "keep_alive": DEFAULT_KEEP_ALIVE
         }
 
         t0 = time.time()
@@ -503,4 +534,25 @@ class OllamaProvider:
         except Exception as parse_err:
             logger.warning(f"[OllamaProvider] Structured action generation/parse failed: {parse_err}")
             return {"success": False, "error": f"Structured action error: {parse_err}"}
+
+
+def prewarm_ollama(model: Optional[str] = None, base_url: str = OLLAMA_BASE_URL) -> None:
+    """Non-blocking background pre-warming of Ollama model."""
+    def _run():
+        try:
+            if is_ollama_available(base_url):
+                logger.info(f"[Ollama] Pre-warming local model '{model or DEFAULT_STARK_MODEL}'...")
+                generate_ollama_response(
+                    prompt="System readiness ping.",
+                    system_prompt="You are JARVIS. Reply in 1 word.",
+                    model=model,
+                    timeout=15.0,
+                    base_url=base_url
+                )
+                logger.info("[Ollama] Model pre-warm complete.")
+        except Exception as e:
+            logger.debug(f"[Ollama] Pre-warm non-fatal error: {e}")
+
+    threading.Thread(target=_run, daemon=True, name="Ollama_Prewarm_Daemon").start()
+
 

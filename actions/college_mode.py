@@ -107,20 +107,42 @@ def college_mode(
         msg = f"Added assignment '{title}' for {course}, due {due_date}."
         return {"success": True, "action": action, "assignment": new_asg, "message": msg, "verified": True}
 
+    elif action in ["complete_assignment", "mark_completed", "finish_assignment"]:
+        target_id_or_title = (params.get("id") or params.get("title") or query or "").lower().strip()
+        asgs = cfg.get("assignments", [])
+        found = False
+        for a in asgs:
+            if target_id_or_title and (target_id_or_title in a.get("id", "").lower() or target_id_or_title in a.get("title", "").lower() or target_id_or_title in a.get("course", "").lower()):
+                a["status"] = "Completed"
+                found = True
+                save_college_config(cfg)
+                msg = f"Marked assignment '{a.get('title')}' as Completed, Boss."
+                return {"success": True, "action": action, "assignment": a, "message": msg, "verified": True}
+        
+        # If no specific match was mentioned, mark the earliest pending assignment
+        for a in asgs:
+            if a.get("status", "").lower() != "completed":
+                a["status"] = "Completed"
+                found = True
+                save_college_config(cfg)
+                msg = f"Marked assignment '{a.get('title')}' ({a.get('course')}) as Completed, Boss."
+                return {"success": True, "action": action, "assignment": a, "message": msg, "verified": True}
+
+        return {"success": False, "action": action, "message": "No pending assignments found to mark complete.", "verified": False}
+
     elif action == "summarize_notes":
         text_content = params.get("text", "") or query
         if not text_content:
             return {"success": False, "action": action, "message": "No note content provided to summarize.", "verified": False}
 
         try:
-            from config import get_api_key
-            import google.generativeai as genai
-            genai.configure(api_key=get_api_key("gemini_api_key"))
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            resp = model.generate_content(
-                f"You are a study assistant. Summarize these lecture notes concisely into key concepts and bullet points:\n\n{text_content[:4000]}"
+            from core.ai_multitier_engine import get_ai_engine
+            ai_brain = get_ai_engine()
+            res = ai_brain.generate_response(
+                prompt=f"Summarize these lecture notes concisely into key concepts and bullet points:\n\n{text_content[:4000]}",
+                system_override="You are an expert study assistant. Summarize notes concisely with clear bullet points."
             )
-            summary_text = resp.text.strip()
+            summary_text = res.get("text", "").strip()
             return {"success": True, "action": action, "summary": summary_text, "message": summary_text, "verified": True}
         except Exception as e:
             return {"success": False, "action": action, "message": f"Summarization failed: {e}", "verified": False}
@@ -128,14 +150,13 @@ def college_mode(
     elif action == "generate_flashcards":
         topic = params.get("topic") or query or "General Study"
         try:
-            from config import get_api_key
-            import google.generativeai as genai
-            genai.configure(api_key=get_api_key("gemini_api_key"))
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            resp = model.generate_content(
-                f"Generate 5 key Q&A study flashcards for topic: {topic}. Output format:\nQ: ...\nA: ..."
+            from core.ai_multitier_engine import get_ai_engine
+            ai_brain = get_ai_engine()
+            res = ai_brain.generate_response(
+                prompt=f"Generate 5 key Q&A study flashcards for topic: {topic}. Output format:\nQ: ...\nA: ...",
+                system_override="You are a study assistant. Generate clear, memorable flashcards."
             )
-            flashcards = resp.text.strip()
+            flashcards = res.get("text", "").strip()
             return {"success": True, "action": action, "flashcards": flashcards, "message": flashcards, "verified": True}
         except Exception as e:
             return {"success": False, "action": action, "message": f"Flashcard generation failed: {e}", "verified": False}

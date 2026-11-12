@@ -9,7 +9,7 @@ from pathlib import Path
 
 try:
     import pyautogui
-    pyautogui.FAILSAFE = True
+    pyautogui.FAILSAFE = False
     pyautogui.PAUSE    = 0.05
     _PYAUTOGUI = True
 except ImportError:
@@ -478,24 +478,30 @@ def toggle_wifi():
             print(f"[Settings] toggle_wifi Linux failed: {e}")
 
 def restart_computer():
-    if _OS == "Windows":
-        subprocess.run(["shutdown", "/r", "/t", "10"], capture_output=True)
-    elif _OS == "Darwin":
-        subprocess.run(["osascript", "-e",
-            'tell application "System Events" to restart'],
-            capture_output=True)
-    else:
-        subprocess.run(["systemctl", "reboot"], capture_output=True)
+    return _run_power_action('restart')
 
 def shutdown_computer():
+    return _run_power_action('shutdown')
+
+
+def _run_power_action(action):
     if _OS == "Windows":
-        subprocess.run(["shutdown", "/s", "/t", "10"], capture_output=True)
+        command = ['shutdown', '/r' if action == 'restart' else '/s', '/t', '10']
     elif _OS == "Darwin":
-        subprocess.run(["osascript", "-e",
-            'tell application "System Events" to shut down'],
-            capture_output=True)
+        command = ['osascript', '-e', 'tell application "System Events" to ' + ('restart' if action == 'restart' else 'shut down')]
     else:
-        subprocess.run(["systemctl", "poweroff"], capture_output=True)
+        command = ['systemctl', 'reboot' if action == 'restart' else 'poweroff']
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=10,
+                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0) if _OS == 'Windows' else 0)
+        success = result.returncode == 0
+        return {'success': success, 'verified': False,
+                'status': 'POWER_REQUEST_ACCEPTED' if success else 'POWER_FAILED',
+                'message': (f'Windows ne {action} request accept ki. 10 seconds ka delay hai; actual power transition abhi verify nahi hui.'
+                            if success and _OS == 'Windows' else f'{action} request accept hui.' if success
+                            else f'{action} nahi hua: {(result.stderr or result.stdout or "OS ne request reject ki")[:160]}')}
+    except Exception as error:
+        return {'success': False, 'verified': False, 'status': 'POWER_FAILED', 'message': f'{action} nahi hua: {error}'}
 
 ACTION_MAP: dict[str, callable] = {
     "volume_up":           volume_up,
@@ -630,38 +636,57 @@ def computer_settings(
                 f"This will {action} the computer. "
                 f"Please confirm by calling again with confirmed=yes."
             )
+        return ACTION_MAP[action]()
 
     if action in ("close_app", "kill_process", "close_application", "terminate_app"):
-        app_target = str(value or params.get("value") or params.get("description") or params.get("app_name") or "").strip()
+        app_target = str(value or params.get("value") or params.get("target") or params.get("description") or params.get("app_name") or "").strip()
+        if app_target:
+            import re
+            app_target = re.sub(r"^(?:jarvis[,\s]+)?(?:close|kill|terminate|band karo)\s*", "", app_target, flags=re.IGNORECASE).strip()
+            app_target = re.sub(r"\s+(?:band karo|band kar|close karo)\.?$", "", app_target, flags=re.IGNORECASE).strip()
+            app_target = app_target.rstrip(" .")
         if not app_target:
             return "Please specify which application to close, sir."
         
         clean_target = app_target.lower().replace(".exe", "").strip()
         killed = False
         
+        target_candidates = [clean_target, f"{clean_target}.exe"]
+        if "calc" in clean_target:
+            target_candidates.extend(["calculatorapp.exe", "calculatorapp", "calculator.exe", "calc.exe"])
+        elif "chrome" in clean_target:
+            target_candidates.extend(["chrome.exe", "chrome"])
+        elif "notepad" in clean_target:
+            target_candidates.extend(["notepad.exe", "notepad"])
+        elif "explorer" in clean_target:
+            target_candidates.extend(["explorer.exe", "explorer"])
+
         # 1. Windows taskkill tree kill
         if _OS == "Windows":
-            try:
-                subprocess.run(["taskkill", "/F", "/T", "/IM", f"{clean_target}.exe"], capture_output=True)
-                subprocess.run(["taskkill", "/F", "/T", "/IM", clean_target], capture_output=True)
-                killed = True
-            except Exception:
-                pass
+            for cand in target_candidates:
+                try:
+                    subprocess.run(["taskkill", "/F", "/T", "/IM", cand if cand.endswith(".exe") else f"{cand}.exe"], capture_output=True)
+                    killed = True
+                except Exception:
+                    pass
 
         # 2. psutil termination fallback
         try:
             import psutil
             for proc in psutil.process_iter(["name", "pid"]):
-                name = (proc.info.get("name") or "").lower()
-                if clean_target in name or name.replace(".exe", "") in clean_target:
-                    proc.kill()
-                    killed = True
+                try:
+                    name = (proc.info.get("name") or "").lower()
+                    if any(c in name for c in target_candidates) or any(name.replace(".exe", "") == c for c in target_candidates):
+                        proc.kill()
+                        killed = True
+                except Exception:
+                    continue
         except Exception:
             pass
 
         time.sleep(0.4)
         from core.verification import verify_process_closed
-        verif = verify_process_closed(app_target, timeout=4.0)
+        verif = verify_process_closed(clean_target, timeout=4.0)
         if verif["verified"]:
             return f"Closed {app_target} successfully, sir."
         return f"Attempted to close {app_target}, but process remains active."

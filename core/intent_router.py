@@ -10,7 +10,9 @@ WHATSAPP_VIDEO_CALL_PATTERNS = [
     r"\bvideo call\b.*\bwhatsapp\b",
     r"\bwhatsapp\b.*\bvideo call\b",
     r"\b[a-zA-Z0-9_\s]+ ko whatsapp (pe|par)? video call\b",
-    r"\bvideo call [a-zA-Z0-9_\s]+ on whatsapp\b"
+    r"\bvideo call [a-zA-Z0-9_\s]+ on whatsapp\b",
+    # Hinglish: "X ko video call laga" / "X ko video call kar"
+    r"\b[a-zA-Z0-9_\s]+\s+ko\s+video\s+call\s+(?:laga|lagao|kar|karo|kar\s*do)\b",
 ]
 
 WHATSAPP_CALL_PATTERNS = [
@@ -19,8 +21,11 @@ WHATSAPP_CALL_PATTERNS = [
     r"\b[a-zA-Z0-9_\s]+ ko whatsapp (call|voice call)\b",
     r"\bwhatsapp pe [a-zA-Z0-9_\s]+ ko call\b",
     r"\b[a-zA-Z0-9_\s]+ ko call (karo|kar do|khol)\b",
-    r"\bcall [a-zA-Z0-9_\s]+\b"
+    r"\bcall [a-zA-Z0-9_\s]+\b",
+    # Hinglish: "X ko call laga" / "X ko call kar" / "X ko voice call laga"
+    r"\b[a-zA-Z0-9_\s]+\s+ko\s+(?:voice\s+)?call\s+(?:laga|lagao|kar|karo|kar\s*do)\b",
 ]
+
 
 WHATSAPP_OPEN_CHAT_PATTERNS = [
     r"\b(open|kholo|khol)\b.*\bwhatsapp chat\b",
@@ -56,8 +61,19 @@ WHATSAPP_SEND_PATTERNS = [
     r"\b[a-zA-Z0-9_\s]+ ko whatsapp (pe|par) message\b",
     r"\b[a-zA-Z0-9_\s]+ ko (message|msg) (karo|bhej|bhejo)\b",
     r"\bmessage [a-zA-Z0-9_\s]+ on whatsapp\b",
-    r"\bwhatsapp\s+[a-zA-Z0-9_\s]+\s+(and\s+)?(say|tell)\b"
+    r"\bwhatsapp\s+[a-zA-Z0-9_\s]+\s+(and\s+)?(say|tell)\b",
+    # Hinglish: "X ko Y bhej" / "X ko Y send kar" / "X ko Y bhej de"
+    r"\b[a-zA-Z0-9_\s]+\s+ko\s+.+\s+(bhej|bhej\s*de|bhejo|send\s+kar|send\s+karo)\s*$",
+    # Hinglish: "X ko bol Y" / "X ko bolo Y"
+    r"\b[a-zA-Z0-9_\s]+\s+ko\s+(bol|bolo|bol\s*de|bolna)\s+.+",
+    # Hinglish: "X ko ping kar"
+    r"\b[a-zA-Z0-9_\s]+\s+ko\s+ping\s+(kar|karo)\b",
+    # Hinglish: "X ko message kar Y"
+    r"\b[a-zA-Z0-9_\s]+\s+ko\s+(message|msg)\s+(kar|karo|kar\s*do)\s+.+",
+    # Hinglish: "X ko hello bhej" simplified
+    r"\b\w+\s+ko\s+\w+\s+bhej\b",
 ]
+
 
 EXPLICIT_WHATSAPP_WEB_PATTERNS = [
     r"\bwhatsapp web\b", r"\bwa web\b", r"open whatsapp web", r"whatsapp web khol",
@@ -86,12 +102,26 @@ COLLEGE_PATTERNS = [
 ]
 
 WEB_SEARCH_TRIGGERS = [
+    r"\b(?:chrome|edge|firefox|brave|browser|browsers)\b.*\b(?:search\s+(?:engine|settings|preferences)|default\s+(?:search|engine)|default\s+kar\s+do|change\s+search\s+engine|preferences|settings)\b",
+    r"\bsearch\s+(?:settings|preferences)\b.*\b(?:chrome|edge|firefox|brave|browser)\b",
+    r"\b(?:sab\s+)?browsers?\b.*\b(?:settings|preferences)\b",
+    r"\b(?:chrome|edge|firefox|brave)\b.*\b(?:google|bing|duckduckgo|brave search|yahoo)\b.*\b(?:use|set|default|use karo|set karo)\b",
+    r"\b(?:chrome|edge|firefox|brave)\b.*\b(?:search|dhundho|dhoondho)\b",
     r"google\s+search", r"search\s+(the\s+)?web", r"search\s+(the\s+)?internet",
     r"search\s+online", r"look\s+it\s+up", r"look\s+this\s+up", r"check\s+online",
     r"search\s+news", r"search\s+for", r"google\s+for", r"google\s+this", r"google\s+it",
     r"internet\s+pe\s+search", r"google\s+karke\s+bata", r"search\s+karo",
     r"latest\s+news", r"current\s+price", r"latest\s+price", r"today'?s\s+weather",
     r"live\s+score", r"latest\s+update", r"official\s+website",
+    r"\blatest\b", r"\bcurrent\s+(?:price|news|score|weather|exchange rate|stock)\b",
+    r"\b(?:internet|web|online)\s+(?:se|pe|par)\s+(?:dhund|dhoond|search|dekh|check)",
+    r"\b(?:aaj|abhi)\b.*\b(?:score|news|price|rate|weather|mausam|khabar)\b",
+    r"इंटरनेट.*(?:खोज|ढूंढ|सर्च)", r"(?:ताज़ा|ताजा|आज का).*(?:समाचार|खबर|स्कोर|मौसम)",
+    r"\b(?:centuries|hundreds|odi runs|wickets|squad|rankings?|ceo|president|prime minister)\b",
+    r"\b(?:standings?|points\s+tables?|team\s+rankings?|tournament\s+rankings?|cricket\s+results?)\b",
+    r"\b(?:points|rank|position)\b.*\b(?:kitne|kitni|number|position|rank)\b",
+    r"\b(?:how many|kitne|kitni|total)\b.*\b(?:runs|matches|centur|shatak|hundred|goals|wins)\w*",
+    r"(?:शतक|टीम.*घोषणा|कप्तान|प्रधानमंत्री|राष्ट्रपति)",
     r"^search\s+[a-zA-Z0-9_\-\s]+\s+for"
 ]
 
@@ -114,6 +144,18 @@ COLLEGE_COMPILED = _compile(COLLEGE_PATTERNS)
 WEB_SEARCH_TRIGGERS_COMPILED = _compile(WEB_SEARCH_TRIGGERS)
 
 
+def normalize_command_prefix(text: str) -> str:
+    """Remove leading conversational words while preserving the message body."""
+    command = (text or "").strip()
+    pattern = r"^(?:(?:hey|hi|hello|ok|okay|ओके|हे|हेलो)[,\s]+)?(?:jarvis|jervis|जार्विस|जारविस|जर्विस|boss|sir|bhaiya|bhai|yaar|dost)\b(?:[,\s:!?।]+|$)|^(?:please|pls|can you|could you|would you|kindly|zara|ek baar|ab|phir|fir|now|then|aur|and|next)\s+"
+    for _ in range(5):
+        clean = re.sub(pattern, "", command, count=1, flags=re.I).strip()
+        if clean == command:
+            break
+        command = clean
+    return command
+
+
 def classify_intent(text: str) -> Dict[str, Any]:
     """
     Classifies user instruction according to App-First Priority Hierarchy:
@@ -128,13 +170,63 @@ def classify_intent(text: str) -> Dict[str, Any]:
     if not raw_text:
         return {"intent": "OTHER", "query": "", "target": ""}
 
-    lower_text = raw_text.lower()
+    clean_raw = normalize_command_prefix(raw_text).rstrip(".?!,;: ")
+    clean_raw = re.sub(r"[,\s]+(boss|sir|jarvis|bhai|yaar)$", "", clean_raw, flags=re.IGNORECASE).strip()
+    if not clean_raw:
+        clean_raw = raw_text.rstrip(".?!,;: ")
+    lower_text = clean_raw.casefold()
 
-    # Normalize conversational addressing & wake-word prefixes (Boss / Sir / Jarvis)
-    normalized_text = re.sub(r"^(boss|sir|jarvis|hey jarvis|hi jarvis|okay jarvis|ok jarvis)[,\s]+", "", lower_text, flags=re.IGNORECASE).strip()
-    normalized_text = re.sub(r"[,\s]+(boss|sir|jarvis)$", "", normalized_text, flags=re.IGNORECASE).strip()
-    if normalized_text:
-        lower_text = normalized_text
+    from agent.task_manager import parse_assignment
+    if parse_assignment(clean_raw):
+        return {'intent': 'TASK_MANAGER', 'query': clean_raw, 'target': '', 'tool': 'task_manager'}
+
+    # Drafting is a conversation task, never text injection into the active app.
+    drafting = (re.search(r'\b(?:email|e-mail|mail|letter|application|cover letter|reply|message)\b', lower_text)
+                and re.search(r'\b(?:draft|compose|write|likh|likho|likhna|likhni|bana|banao|banado)\b', lower_text))
+    if drafting and not re.match(r'^(?:type|isme|yahan|paste)\b', lower_text):
+        return {'intent': 'DRAFT_TEXT', 'query': raw_text, 'target': '', 'tool': 'ai_brain'}
+
+    # Explicit social platforms take priority over generic WhatsApp patterns.
+    from actions.social_chat import parse_social_command
+    social = parse_social_command(clean_raw)
+    if social:
+        return {"intent": "SOCIAL_CHAT", "tool": "social_chat", "query": raw_text, **social}
+
+    from actions.youtube_browser import parse_youtube_request
+    communication = parse_social_command(clean_raw, include_whatsapp=True)
+    from actions.model_3d import parse_model_request
+    model_request = parse_model_request(clean_raw) if not communication else None
+    if model_request:
+        return {'intent': 'MODEL_3D', 'tool': 'model_3d', **model_request}
+    from core.study_documents import attachment_request
+    study = attachment_request(clean_raw) if not communication else None
+    if study:
+        return {'intent': 'STUDY_DOCUMENT', 'tool': 'study_document', **study}
+    youtube = parse_youtube_request(clean_raw) if not communication else None
+    if youtube:
+        return {'intent': 'YOUTUBE_VIDEO', 'tool': 'youtube_video', **youtube}
+    contacts_control = re.fullmatch(r'(connect|sync|refresh|import|status) (?:google |gmail )?contacts(?: (?:karo|kar))?|(?:google |gmail )?contacts (connect|sync|refresh|import|status)(?: (?:karo|kar))?', lower_text)
+    if contacts_control:
+        action = contacts_control[1] or contacts_control[2]
+        return {'intent': 'CONTACT_DIRECTORY', 'tool': 'contact_directory', 'action': 'sync' if action == 'refresh' else action}
+    if (not communication and re.search(r'\bcontacts\b', lower_text)
+            and re.search(r'\b(?:gmail|google)\b', lower_text)
+            and re.search(r'\b(?:sync|refresh|connect|import)\b', lower_text)):
+        action = 'import' if re.search(r'\bimport\b', lower_text) else 'connect' if re.search(r'\bconnect\b', lower_text) else 'sync'
+        return {'intent': 'CONTACT_DIRECTORY', 'tool': 'contact_directory', 'action': action}
+
+    # 0. CURRENT TIME & DATE FAST-PATH INTENT CHECK
+    time_patterns = [
+        "what time is it", "what's the time", "what is the time", "current time", "tell me the time",
+        "time kya hua", "time kya hai", "kitne baje", "kitna time hua", "time batao", "time bata",
+        "what day is it", "what is the date", "what's the date", "today's date", "aaj ki date", "aaj konsa din"
+    ]
+    if any(k in lower_text for k in time_patterns) or (lower_text.startswith("time") and len(lower_text.split()) <= 3):
+        return {
+            "intent": "CURRENT_TIME",
+            "query": raw_text,
+            "tool": "system_info"
+        }
 
     # 0. MICROPHONE SCOPED CONTROL INTENT CHECK
     mic_patterns = [
@@ -151,16 +243,24 @@ def classify_intent(text: str) -> Dict[str, Any]:
             "tool": "mic_control"
         }
 
+    # Exact controls precede generic observation; never match message payloads.
+    camera_control_match = re.fullmatch(r'(?:camera|cam|webcam|कैमरा) (on|off|status|chalu|band|चालू|बंद)(?: karo| kar| करो)?', lower_text.strip(' ,.!?।'))
+    if camera_control_match:
+        action = {'chalu': 'on', 'चालू': 'on', 'band': 'off', 'बंद': 'off'}.get(camera_control_match[1], camera_control_match[1])
+        return {'intent': 'CAMERA_CONTROL', 'tool': 'camera_control', 'action': action, 'query': raw_text}
+    if lower_text.strip(' ,.!?।') in ('access status', 'permissions status', 'laptop access status', 'meri permissions dikhao', 'kya access hai', 'what can you access'):
+        return {'intent': 'ASSISTANT_ACCESS', 'tool': 'assistant_access', 'query': raw_text}
+
     # 0.1 SCREEN OBSERVATION & VISION ANALYSIS INTENTS ("Screen dekh", "Screen analyze karo", "What's on my screen?")
     screen_vision_patterns = [
         "screen dekh", "screen dekho", "screen dekhna", "screen analyze", "screen pe kya", "screen par kya",
         "screen check", "look at my screen", "look at the screen", "what's on my screen", "what is on my screen",
         "analyze my screen", "analyze screen", "can you see my screen", "ye screen pe kya", "screen par dekho",
         "dekh screen pe", "screen pe dekh", "screen dikhao", "read my screen", "screen reading", "screen observe",
-        "webcam dekh", "camera dekh", "camera check", "look at camera", "what do you see in camera"
+        "webcam dekh", "camera dekh", "cam dekh", "camera check", "look at camera", "what do you see in camera"
     ]
-    if any(k in lower_text for k in screen_vision_patterns) or re.search(r"\b(screen|camera|webcam)\b.*\b(dekh|dekho|analyze|look|see|inspect|read|check)\b", lower_text) or re.search(r"\b(dekh|dekho|analyze|look at|inspect)\b.*\b(screen|camera|webcam)\b", lower_text):
-        angle = "camera" if any(k in lower_text for k in ["camera", "webcam"]) else "screen"
+    if any(k in lower_text for k in screen_vision_patterns) or re.search(r'(?:स्क्रीन|स्क्रिन|कैमरा).*(?:देख|दिख|एनालाइज|अनालाइज|पढ़|चेक)', lower_text) or re.search(r"\b(screen|camera|webcam|cam)\b.*\b(dekh|dekho|dekhiyo|analyze|look|see|inspect|read|check)\b", lower_text) or re.search(r"\b(dekh|dekho|analyze|look at|inspect)\b.*\b(screen|camera|webcam|cam)\b", lower_text):
+        angle = "camera" if re.search(r'\b(?:camera|webcam|cam)\b|कैमरा', lower_text) else "screen"
         return {
             "intent": "SCREEN_ANALYSIS",
             "query": raw_text,
@@ -253,6 +353,60 @@ def classify_intent(text: str) -> Dict[str, Any]:
     if any(k in lower_text for k in ["screenshot le", "screenshot lo", "take screenshot", "capture screen", "screen shot"]):
         return {"intent": "SCREENSHOT", "query": raw_text, "tool": "computer_control"}
 
+    # VISUAL AGENT INTENTS (screen interaction, click, UI inspection, error debugging)
+    visual_agent_patterns = [
+        "click the", "click on", "button click", "button dabao", "pe click karo",
+        "screen dekh ke bata", "screen dekho", "screen pe kya hai", "what is on my screen",
+        "ye error fix karo", "isme problem kya hai", "error check karo", "screen analyze",
+        "type in the", "type into", "scroll down", "scroll up",
+        "look at my screen", "inspect screen", "screen mein kya dikh raha",
+        "continue button", "submit button", "next button", "ok button",
+        "right click", "double click",
+    ]
+    if any(k in lower_text for k in visual_agent_patterns):
+        return {"intent": "VISUAL_AGENT", "query": raw_text, "tool": "visual_agent"}
+
+    # WORKFLOW INTENTS
+    workflow_patterns = [
+        "workflow run", "workflow chala", "workflow start", "workflow create",
+        "workflow bana", "workflow save", "workflow list", "workflow delete",
+        "workflow cancel", "run workflow", "create workflow", "list workflows",
+        "saved workflows", "mere workflows", "workflow dikhao",
+    ]
+    if any(k in lower_text for k in workflow_patterns):
+        return {"intent": "WORKFLOW", "query": raw_text, "tool": "workflow_engine"}
+
+    # MACRO INTENTS
+    macro_patterns = [
+        "study mode", "coding setup", "morning routine", "macro run",
+        "macro chala", "macro start", "macro create", "macro bana",
+        "macro list", "macro delete", "run macro", "create macro",
+        "macros dikhao", "same kaam firse", "wahi kaam dobara",
+    ]
+    if any(k in lower_text for k in macro_patterns):
+        return {"intent": "MACRO", "query": raw_text, "tool": "macro_executor"}
+
+    # NOTES INTENTS
+    notes_patterns = [
+        "note this", "note down", "note bana", "note likh", "save note",
+        "my notes", "mere notes", "notes dikhao", "open notes", "show notes",
+        "note search", "find note", "note kya likha tha", "yesterday note",
+        "hackathon notes", "project notes", "study notes",
+    ]
+    if any(k in lower_text for k in notes_patterns):
+        return {"intent": "NOTES", "query": raw_text, "tool": "notes_manager"}
+
+    # PERSONAL PROFILE INTENTS
+    profile_patterns = [
+        "my name is", "mera naam", "i like", "mujhe pasand", "my hobby",
+        "remember that i", "yaad rakh", "my favorite", "mera favorite",
+        "my preference", "meri preference", "my profile", "mera profile",
+        "what do you know about me", "mere baare mein kya jaante ho",
+        "privacy mode", "forget me", "clear profile", "delete my data",
+    ]
+    if any(k in lower_text for k in profile_patterns):
+        return {"intent": "PERSONAL_PROFILE", "query": raw_text, "tool": "personal_profile"}
+
     # CLIPBOARD INTENTS
     if any(k in lower_text for k in ["clipboard padho", "clipboard mein kya", "copy to clipboard", "clipboard mein text"]):
         return {"intent": "CLIPBOARD", "query": raw_text, "tool": "windows_system_controller"}
@@ -270,7 +424,7 @@ def classify_intent(text: str) -> Dict[str, Any]:
         act = "brightness_up" if any(x in lower_text for x in ["up", "badha", "increase"]) else "brightness_down"
         return {"intent": "COMPUTER_SETTINGS", "query": raw_text, "action": act, "tool": "computer_settings"}
 
-    if any(k in lower_text for k in ["volume up", "volume down", "volume badhao", "volume badha", "volume kam", "volume kam karo", "awaz badhao", "awaz badha", "awaz kam", "awaz kam karo", "volume increase", "volume decrease", "turn volume up", "turn volume down", "mute system", "unmute system", "open wifi settings", "open bluetooth settings", "open windows settings"]):
+    if any(k in lower_text for k in ["volume up", "volume down", "volume badhao", "volume badha", "volume kam", "volume kam karo", "awaz badhao", "awaz badha", "awaz kam", "awaz kam karo", "volume increase", "volume decrease", "increase volume", "decrease volume", "turn volume up", "turn volume down", "mute system", "unmute system", "open wifi settings", "open bluetooth settings", "open windows settings"]):
         act = "volume_up" if any(x in lower_text for x in ["up", "badha", "increase"]) else ("volume_down" if any(x in lower_text for x in ["down", "kam", "decrease"]) else ("mute" if "mute" in lower_text else "open_settings"))
         return {"intent": "COMPUTER_SETTINGS", "query": raw_text, "action": act, "tool": "computer_settings"}
 
@@ -278,18 +432,23 @@ def classify_intent(text: str) -> Dict[str, Any]:
         act = "toggle_wifi" if "wifi" in lower_text else "open_settings"
         return {"intent": "COMPUTER_SETTINGS", "query": raw_text, "action": act, "tool": "computer_settings"}
 
-    # TIMER & ALARM FAST-PATH INTENT CHECKS
-    if any(k in lower_text for k in ["timer laga", "set timer", "timer set", "alarm laga", "set alarm", "alarm set"]):
+    # TIMER, ALARM & REMINDER FAST-PATH INTENT CHECKS
+    if re.search(r"\b(?:set|create)(?:\s+(?:a|an))?\s+(?:reminder|timer|alarm)\b", lower_text) or any(k in lower_text for k in [
+        "remind me", "set reminder", "reminder set", "reminder laga", "create reminder",
+        "mujhe yaad dilana", "yaad dilana", "yaad dila", "remind kar", "timer laga", "set timer", "timer set",
+        "alarm laga", "set alarm", "alarm set"
+    ]):
         return {"intent": "REMINDER", "query": raw_text, "tool": "reminder"}
 
     # APPLICATION CLOSE FAST-PATH INTENT CHECK ("Chrome band karo", "close Chrome", "isko band karo")
     if lower_text.endswith((" band karo", " bandh karo", " close karo", " band kar")) or lower_text.startswith(("close ", "stop app ")):
-        target_app = re.sub(r"\s+(band karo|bandh karo|close karo|band kar)$", "", raw_text, flags=re.IGNORECASE).strip()
+        target_app = re.sub(r"\s+(band karo|bandh karo|close karo|band kar)$", "", clean_raw, flags=re.IGNORECASE).strip()
         target_app = re.sub(r"^(close|stop app)\s+", "", target_app, flags=re.IGNORECASE).strip()
+        target_app = target_app.rstrip(" .")
         return {
             "intent": "CLOSE_APPLICATION",
             "query": raw_text,
-            "target": target_app or raw_text,
+            "target": target_app or clean_raw,
             "action": "close_app",
             "tool": "computer_settings"
         }
@@ -315,7 +474,7 @@ def classify_intent(text: str) -> Dict[str, Any]:
         }
 
     # 1. SPECIAL CASE: GOOGLE WEBSITE OPEN
-    if lower_text in ["google kholo", "open google", "google open karo", "open google in chrome"]:
+    if any(lower_text == k or lower_text.startswith(k + " ") for k in ["google kholo", "google khol", "google chala", "google chalao", "open google", "google open karo", "google open kar", "open google in chrome"]):
         return {"intent": "KNOWN_WEBSITE", "query": raw_text, "target": "https://www.google.com/", "service_name": "google", "tool": "web_registry"}
 
     # 2. EXPLICIT WEB SEARCH CHECK (e.g. "Search for Chrome", "Search Google for VS Code", "Find information about Spotify")
@@ -398,40 +557,40 @@ def classify_intent(text: str) -> Dict[str, Any]:
     # 3. WHATSAPP COMMUNICATION ACTIONS (MESSAGE / VOICE CALL / VIDEO CALL / OPEN CHAT / READ / REPLY / AUTOREPLY)
     for pat in WHATSAPP_END_CALL_COMPILED:
         if pat.search(lower_text):
-            return {"intent": "WHATSAPP_END_CALL", "query": raw_text, "target": "https://web.whatsapp.com/", "tool": "whatsapp"}
+            return {"intent": "WHATSAPP_END_CALL", "query": raw_text, "target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP", "tool": "whatsapp"}
 
     for pat in WHATSAPP_VIDEO_CALL_COMPILED:
         if pat.search(lower_text):
-            return {"intent": "WHATSAPP_VIDEO_CALL", "query": raw_text, "target": "https://web.whatsapp.com/", "tool": "whatsapp_video_call"}
+            return {"intent": "WHATSAPP_VIDEO_CALL", "query": raw_text, "target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP", "tool": "whatsapp_video_call"}
 
     for pat in WHATSAPP_CALL_COMPILED:
         if pat.search(lower_text):
-            return {"intent": "WHATSAPP_CALL", "query": raw_text, "target": "https://web.whatsapp.com/", "tool": "whatsapp_voice_call"}
+            return {"intent": "WHATSAPP_CALL", "query": raw_text, "target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP", "tool": "whatsapp_voice_call"}
 
     for pat in WHATSAPP_OPEN_CHAT_COMPILED:
         if pat.search(lower_text):
-            return {"intent": "WHATSAPP_OPEN_CHAT", "query": raw_text, "target": "https://web.whatsapp.com/", "tool": "whatsapp_open_chat"}
+            return {"intent": "WHATSAPP_OPEN_CHAT", "query": raw_text, "target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP", "tool": "whatsapp_open_chat"}
 
     for pat in WHATSAPP_REPLY_COMPILED:
         if pat.search(lower_text):
-            return {"intent": "WHATSAPP_REPLY", "query": raw_text, "target": "https://web.whatsapp.com/", "tool": "whatsapp_reply"}
+            return {"intent": "WHATSAPP_REPLY", "query": raw_text, "target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP", "tool": "whatsapp_reply"}
 
     for pat in WHATSAPP_AUTOREPLY_COMPILED:
         if pat.search(lower_text):
-            return {"intent": "WHATSAPP_AUTOREPLY", "query": raw_text, "target": "https://web.whatsapp.com/", "tool": "whatsapp"}
+            return {"intent": "WHATSAPP_AUTOREPLY", "query": raw_text, "target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP", "tool": "whatsapp"}
 
     for pat in WHATSAPP_SEND_COMPILED:
         if pat.search(lower_text):
-            return {"intent": "WHATSAPP_MESSAGE", "query": raw_text, "target": "https://web.whatsapp.com/", "tool": "whatsapp_send_message"}
+            return {"intent": "WHATSAPP_MESSAGE", "query": raw_text, "target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP", "tool": "whatsapp_send_message"}
 
     for pat in WHATSAPP_READ_COMPILED:
         if pat.search(lower_text):
-            return {"intent": "WHATSAPP_READ", "query": raw_text, "target": "https://web.whatsapp.com/", "tool": "whatsapp_read_messages"}
+            return {"intent": "WHATSAPP_READ", "query": raw_text, "target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP", "tool": "whatsapp_read_messages"}
 
     # 4. EXPLICIT WEB APPLICATION REQUESTS (e.g. "open WhatsApp Web", "WhatsApp Web kholo")
     for pat in EXPLICIT_WHATSAPP_WEB_COMPILED:
         if pat.search(lower_text):
-            return {"intent": "WHATSAPP_WEB", "query": raw_text, "target": "https://web.whatsapp.com/", "tool": "whatsapp"}
+            return {"intent": "WHATSAPP_WEB", "query": raw_text, "target": "https://web.whatsapp.com/", "tool": "whatsapp", "mode": "web", "action": "open"}
 
     for pat in EXPLICIT_TELEGRAM_WEB_COMPILED:
         if pat.search(lower_text):
@@ -447,17 +606,109 @@ def classify_intent(text: str) -> Dict[str, Any]:
         if pat.search(lower_text):
             return {"intent": "COLLEGE_QUERY", "query": raw_text, "target": "", "tool": "college_mode"}
 
-    # 7. GENERAL EXPLICIT WEB SEARCH
+    # 6.5 SENSITIVE ACTIONS (High/Critical risk operations requiring explicit confirmation)
+    if any(k in lower_text for k in ["format drive", "format disk", "delete all", "disable defender", "disable firewall"]):
+        return {"intent": "SENSITIVE", "query": raw_text, "target": "", "tool": "security_confirmation"}
+
+    # 6.6 COMPLEX MULTI-STEP PLANNER INTENTS
+    has_multi_clause = bool(
+        re.search(r"\b(and|aur|phir|then)\b", lower_text) and
+        re.search(r"\b(open|launch|kholo|khol|check|find|write|likho|inspect|analyze|solve|research)\b", lower_text)
+    )
+    if has_multi_clause or any(k in lower_text for k in [
+        "open antigravity and", "antigravity kholo aur", "open notepad and", "notepad kholo aur",
+        "find my project and", "inspect the build", "check the build", "inspect the latest error",
+        "mera jarvis project open karo", "build error check karo"
+    ]):
+        return {"intent": "COMPLEX_PLANNER", "query": raw_text, "target": "", "tool": "task_planner"}
+
+    # 6.7 SCREEN VISION INTENTS
+    if any(k in lower_text for k in [
+        "what is on my screen", "what's on my screen", "screen pe kya hai", "screen pe kya chal raha",
+        "dekho screen", "screen dekho", "look at my screen", "screen check karo", "inspect screen"
+    ]):
+        return {"intent": "SCREEN_ANALYSIS", "query": raw_text, "target": "", "tool": "screen_process"}
+
+    # 6.8 SELF DIAGNOSTICS & SYSTEM TELEMETRY INTENTS
+    raw_lower = raw_text.lower()
+    if any(k in lower_text or k in raw_lower for k in [
+        "jarvis status", "system check", "kya chal raha hai", "which ai", "konsa ai", "why are you slow",
+        "system status", "diagnostics", "status"
+    ]) or lower_text == "status":
+        return {"intent": "DIAGNOSTICS", "query": raw_text, "target": "", "tool": "diagnostics"}
+
+    # 6.9 UNIFIED TASK MANAGER INTENTS
+    if any(k in lower_text for k in [
+        "pending tasks", "tasks batao", "sabse important", "most important task",
+        "kal assignment submit", "friday tak project", "complete mark karo", "mark complete"
+    ]):
+        return {"intent": "TASK_MANAGER", "query": raw_text, "target": "", "tool": "task_manager"}
+
+    # 6.10 AMBIGUOUS SINGLE-WORD QUERIES
+    clean_words = [w for w in lower_text.split() if len(w) > 1]
+    if len(clean_words) == 1 and clean_words[0] in ["file", "window", "project", "open", "kholo", "check"]:
+        return {"intent": "AMBIGUOUS", "query": raw_text, "target": clean_words[0], "tool": "clarification"}
+
+    # Fresh/explicit lookups must precede static knowledge answers.
     if any(pat.search(lower_text) for pat in WEB_SEARCH_TRIGGERS_COMPILED):
         return {"intent": "WEB_SEARCH", "query": raw_text, "target": "", "tool": "web_search"}
 
+    # 6.11 INFORMATION & KNOWLEDGE QUESTIONS
+    if (lower_text.startswith(("what is ", "who is ", "who was ", "explain ", "what are ", "why does ", "how does "))
+            and not any(k in lower_text for k in ["screen", "class", "schedule", "timetable", "assignment", "status", "ai", "today's", "weather"])):
+        return {"intent": "INFORMATION", "query": raw_text, "target": "", "tool": "ai_brain"}
+
+    # 7.5 TYPING & KEYBOARD INPUT INTENT ("Isme hello type karo", "type hello", "hello type karo", "isme likho hello")
+    typing_extracted = None
+    # Pattern A: 'isme type karo hello' or 'isme likho hello' or 'type hello'
+    mA = re.search(r"^(?:isme|yahan|in it|here)?\s*(?:type|write|likho|likh do|likh)\s+(?:karo\s+|kar do\s+)?(.+?)(?:\s*(?:karo|kar do|kardo))?$", lower_text, re.IGNORECASE)
+    if mA:
+        val = mA.group(1).strip()
+        if val and not any(val.startswith(x) for x in ["open ", "khol ", "close ", "band ", "http"]):
+            typing_extracted = val
+
+    # Pattern B: 'isme hello type karo' or 'hello type karo'
+    if not typing_extracted:
+        mB = re.search(r"^(?:isme|yahan|in it|here)?\s*(.+?)\s+(?:type|likho|likh)\s*(?:karo|kar do|kardo|de|do)$", lower_text, re.IGNORECASE)
+        if mB:
+            val = mB.group(1).strip()
+            if val and not any(val.startswith(x) for x in ["open ", "khol ", "close ", "band ", "http"]):
+                typing_extracted = val
+
+    if typing_extracted:
+        return {
+            "intent": "TYPING",
+            "query": raw_text,
+            "target": typing_extracted,
+            "text": typing_extracted,
+            "tool": "computer_control",
+            "action": "type",
+        }
+
     # 8. WINDOWS APPLICATION INTENTS (APP-FIRST: "open chrome", "launch vs code", "start spotify", "run notepad", "open antigravity", etc.)
-    if lower_text.startswith(("open ", "launch ", "start ", "run ")) or lower_text.endswith((" kholo", " khol", " open karo")):
-        app_name = re.sub(r"^(open|launch|start|run)\s+", "", raw_text, flags=re.IGNORECASE).strip()
-        app_name = re.sub(r"\s+(kholo|khol|open karo)$", "", app_name, flags=re.IGNORECASE).strip()
+    app_open_prefixes = ("open ", "launch ", "start ", "run ", "chalao ", "chala ")
+    app_open_suffixes = (
+        " kholo", " khol", " khol de", " khol do", " khol dena",
+        " open karo", " open kar", " open kardo", " open karde", " kholna", " kholo na",
+        " chala", " chalao", " chala do", " chala de", " chalana",
+        " start karo", " start kar", " run karo", " run kar"
+    )
+    if lower_text.startswith(app_open_prefixes) or any(lower_text.endswith(s) for s in app_open_suffixes):
+        app_name = clean_raw
+        for p in ("open", "launch", "start", "run", "chalao", "chala"):
+            app_name = re.sub(rf"^{p}\s+", "", app_name, flags=re.IGNORECASE).strip()
+        for s in (
+            "kholo na", "kholo", "khol de", "khol do", "khol dena", "kholna", "khol",
+            "open kardo", "open karde", "open karo", "open kar",
+            "chala do", "chala de", "chalao", "chala", "chalana",
+            "start karo", "start kar", "run karo", "run kar"
+        ):
+            app_name = re.sub(rf"\s+{s}$", "", app_name, flags=re.IGNORECASE).strip()
+        app_name = app_name.strip(" '\"`.,")
         
         # Remove trailing "application" or "app"
         app_name = re.sub(r"\s+(application|app)$", "", app_name, flags=re.IGNORECASE).strip()
+        app_name = app_name.strip(" '\"`.,")
 
         # Explicit web URL check (.com, .org, .net)
         if any(app_name.lower().endswith(ext) for ext in [".com", ".org", ".net", ".io"]):

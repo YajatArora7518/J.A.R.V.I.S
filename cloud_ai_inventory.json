@@ -1,0 +1,2102 @@
+[
+  {
+    "file": "main.py",
+    "line_num": 32,
+    "snippet": "from google.genai import types",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 73,
+    "snippet": "LIVE_MODEL          = \"models/gemini-2.5-flash-native-audio-latest\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 90,
+    "snippet": "_cached_api_key = json.load(f)[\"gemini_api_key\"]",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 97,
+    "snippet": "return json.load(f)[\"gemini_api_key\"]",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 769,
+    "snippet": "# Universal Speech Synthesis Engine: works independently of Gemini Live WebSocket",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "main.py",
+    "line_num": 934,
+    "snippet": "# Return TRUTHFUL result to Gemini so its audio response matches reality",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "main.py",
+    "line_num": 944,
+    "snippet": "async def _send_realtime(self):",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 959,
+    "snippet": "await self.session.send_realtime_input(media=blob)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 967,
+    "snippet": "print(f\"[VOICE_DIAGNOSTIC] STAGE_C_FAIL (Gemini Live audio send failed): {e}\", flush=True)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 984,
+    "snippet": "# Mic gate: remains OPEN during TTS so barge-in works via Gemini VAD.",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1078,
+    "snippet": "def _dispatch_voice_to_pipeline(self, transcript: str, gemini_response: str):",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1143,
+    "snippet": "# ONLY if Gemini did NOT already handle it via:",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1145,
+    "snippet": "#   (b) ANY audio/text response from Gemini (full_out non-empty)",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1149,
+    "snippet": "gemini_already_handled = self._turn_had_tool_call or bool(full_out)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1150,
+    "snippet": "if full_in and len(full_in) > 2 and not gemini_already_handled:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1310,
+    "snippet": "ai_policy.assert_cloud_ai_allowed(\"Gemini Live WebSocket\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1311,
+    "snippet": "client = genai.Client(",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1324,
+    "snippet": "client.aio.live.connect(model=LIVE_MODEL, config=config) as session,",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1340,
+    "snippet": "tg.create_task(self._send_realtime())",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1518,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1535,
+    "snippet": "# Store greeting text to speak asynchronously after Gemini connects",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1549,
+    "snippet": "print(\"[BOOT] API Key Check Complete \u2014 Initializing Gemini Live...\", flush=True)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1556,
+    "snippet": "# This ensures Gemini Live, mic, and event loop are never blocked by TTS",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1558,
+    "snippet": "await asyncio.sleep(1.5)  # Let Gemini session connect first",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "main.py",
+    "line_num": 1570,
+    "snippet": "# Create greeting as a background task, not blocking Gemini",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "or_client.py",
+    "line_num": 184,
+    "snippet": "logger.warning(\"[AIProvider] Returning honest local-AI-unavailable message. Cloud fallbacks disabled.\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "ui.py",
+    "line_num": 1085,
+    "snippet": "self._key_input.setPlaceholderText(\"Gemini API Key...\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "ui.py",
+    "line_num": 2350,
+    "snippet": "return bool(d.get(\"gemini_api_key\"))",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "ui.py",
+    "line_num": 2365,
+    "snippet": "API_FILE.write_text(json.dumps({\"gemini_api_key\": key, \"openrouter_api_key\": or_key, \"os_system\": os_name}, indent=4), e",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 5,
+    "snippet": "#   write        \u2192 Describe what you want, Gemini writes it, saves to file",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 10,
+    "snippet": "#   screen_debug \u2192 Screenshot al, ekrandaki kodu/hatay\u0131 Gemini ile analiz et ve d\u00fczelt",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 11,
+    "snippet": "#   optimize     \u2192 Mevcut kodu Gemini ile optimize et (performans, okunabilirlik, best practices)",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 31,
+    "snippet": "GEMINI_MODEL       = \"gemini-2.5-flash\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 36,
+    "snippet": "return json.load(f)[\"gemini_api_key\"]",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 45,
+    "snippet": "self.client = genai.Client(api_key=api_key)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 48,
+    "snippet": "import google.generativeai as genai_legacy",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 53,
+    "snippet": "def generate_content(self, prompt, **kwargs):",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 69,
+    "snippet": "ai_policy.assert_cloud_ai_allowed(\"Gemini Code Helper\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 72,
+    "snippet": "models_to_try = [self.model_name, \"gemini-2.5-flash\", \"gemini-3.6-flash\", \"gemini-3.5-flash\", \"gemini-flash-latest\"]",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 75,
+    "snippet": "resp = self.client.models.generate_content(model=m, contents=prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 80,
+    "snippet": "raise RuntimeError(\"All Gemini models failed in code_helper.\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 82,
+    "snippet": "return self.model.generate_content(prompt, **kwargs)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 85,
+    "snippet": "def _get_gemini(model: str = GEMINI_MODEL):",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 207,
+    "snippet": "model = _get_gemini()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 222,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 230,
+    "snippet": "model  = _get_gemini()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 245,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 364,
+    "snippet": "model  = _get_gemini()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 377,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 398,
+    "snippet": "model  = _get_gemini()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 409,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 439,
+    "snippet": "model = _get_gemini()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 456,
+    "snippet": "response  = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 503,
+    "snippet": "from google.genai import types",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 505,
+    "snippet": "client = genai.Client(api_key=_get_api_key())",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 533,
+    "snippet": "response = client.models.generate_content(",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/code_helper.py",
+    "line_num": 534,
+    "snippet": "model=\"gemini-2.5-flash\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/college_mode.py",
+    "line_num": 139,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/college_mode.py",
+    "line_num": 153,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/desktop.py",
+    "line_num": 98,
+    "snippet": "def _ask_gemini_for_desktop_action(task: str) -> str:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/desktop.py",
+    "line_num": 442,
+    "snippet": "print(f\"[Desktop] Asking Gemini: {actual_task}\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/desktop.py",
+    "line_num": 446,
+    "snippet": "code = _ask_gemini_for_desktop_action(actual_task)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/desktop.py",
+    "line_num": 451,
+    "snippet": "code = _ask_gemini_for_desktop_action(action)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 19,
+    "snippet": "MODEL_PLANNER    = \"gemini-2.5-flash\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 20,
+    "snippet": "MODEL_WRITER     = \"gemini-2.5-flash\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 24,
+    "snippet": "return json.load(f)[\"gemini_api_key\"]",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 33,
+    "snippet": "self.client = genai.Client(api_key=api_key)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 36,
+    "snippet": "import google.generativeai as genai_legacy",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 41,
+    "snippet": "def generate_content(self, prompt, **kwargs):",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 57,
+    "snippet": "ai_policy.assert_cloud_ai_allowed(\"Gemini Code Helper\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 60,
+    "snippet": "models_to_try = [self.model_name, \"gemini-2.5-flash\", \"gemini-3.6-flash\", \"gemini-3.5-flash\", \"gemini-flash-latest\"]",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 63,
+    "snippet": "resp = self.client.models.generate_content(model=m, contents=prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 68,
+    "snippet": "raise RuntimeError(\"All Gemini models failed in dev_agent.\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 70,
+    "snippet": "return self.model.generate_content(prompt, **kwargs)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 182,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 261,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/dev_agent.py",
+    "line_num": 459,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 32,
+    "snippet": "return json.load(f)[\"gemini_api_key\"]",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 35,
+    "snippet": "def _call_gemini(prompt: str, image_obj=None, audio_bytes=None, mime_type=None) -> str:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 36,
+    "snippet": "\"\"\"Invokes Gemini using official google.genai Client with fallback, guarded by AI Policy.\"\"\"",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 57,
+    "snippet": "ai_policy.assert_cloud_ai_allowed(\"Gemini File Processor\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 62,
+    "snippet": "from google.genai import types",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 67,
+    "snippet": "import google.generativeai as genai",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 73,
+    "snippet": "_CACHED_GENAI_CLIENT = genai.Client(api_key=api_key)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 89,
+    "snippet": "for m in [\"gemini-2.5-flash\", \"gemini-3.6-flash\", \"gemini-3.5-flash\", \"gemini-flash-latest\"]:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 91,
+    "snippet": "resp = client.models.generate_content(model=m, contents=contents)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 96,
+    "snippet": "raise RuntimeError(\"All Gemini models failed in file processor.\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 99,
+    "snippet": "model = genai.GenerativeModel(\"gemini-2.5-flash\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 101,
+    "snippet": "resp = model.generate_content([prompt, image_obj])",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 103,
+    "snippet": "resp = model.generate_content([prompt, {\"mime_type\": mime_type or \"audio/mp3\", \"data\": audio_bytes}])",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 105,
+    "snippet": "resp = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 108,
+    "snippet": "raise RuntimeError(\"No Gemini SDK available.\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 171,
+    "snippet": "result = _call_gemini(prompt, image_obj=img)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 277,
+    "snippet": "result = _call_gemini(prompt_map.get(action, f\"Analyze:\\n\\n{text}\"))",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 365,
+    "snippet": "result = _call_gemini(prompt_map[action])",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 410,
+    "snippet": "return _call_gemini(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 462,
+    "snippet": "return _call_gemini(",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 491,
+    "snippet": "return _call_gemini(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 553,
+    "snippet": "result = _call_gemini(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 591,
+    "snippet": "result = _call_gemini(\"Transcribe all speech in this audio file accurately.\", audio_bytes=content, mime_type=mime)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 818,
+    "snippet": "return _call_gemini(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/file_processor.py",
+    "line_num": 849,
+    "snippet": "return _call_gemini(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/flight_finder.py",
+    "line_num": 140,
+    "snippet": "def _parse_flights_with_gemini(",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/flight_finder.py",
+    "line_num": 322,
+    "snippet": "flights = _parse_flights_with_gemini(raw_text, origin, destination, date)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 31,
+    "snippet": "LIVE_MODEL          = \"models/gemini-2.5-flash-native-audio-latest\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 55,
+    "snippet": "key = keys.get(\"gemini_api_key\", \"\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 57,
+    "snippet": "raise ValueError(\"gemini_api_key not found\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 72,
+    "snippet": "_CACHED_GENAI_CLIENT = genai.Client(api_key=key)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 265,
+    "snippet": "from google.genai import types",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 271,
+    "snippet": "client = genai.Client(",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 292,
+    "snippet": "async with client.aio.live.connect(model=LIVE_MODEL, config=config) as session:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 406,
+    "snippet": "Captures active desktop/camera frame, inspects active window, and analyzes via Gemini Vision.",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 472,
+    "snippet": "ai_policy.assert_cloud_ai_allowed(\"Gemini Screen Vision\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 484,
+    "snippet": "# Query Gemini Multimodal Vision API using persistent client",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 485,
+    "snippet": "from google.genai import types",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 502,
+    "snippet": "\"gemini-3.5-flash-lite\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 503,
+    "snippet": "\"gemini-flash-lite-latest\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 504,
+    "snippet": "\"gemini-3.7-flash\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 505,
+    "snippet": "\"gemini-3.6-flash\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 506,
+    "snippet": "\"gemini-3.5-flash\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 507,
+    "snippet": "\"gemini-flash-latest\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/screen_processor.py",
+    "line_num": 514,
+    "snippet": "resp = client.models.generate_content(",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/web_search_diagnostic.py",
+    "line_num": 164,
+    "snippet": "# 9. Gemini tool declaration check",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "actions/web_search_diagnostic.py",
+    "line_num": 180,
+    "snippet": "print(f\"[TEST] Gemini tool declaration ...... {t9}\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/youtube_video.py",
+    "line_num": 154,
+    "snippet": "def _summarize_with_gemini(transcript: str, video_url: str) -> str:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "actions/youtube_video.py",
+    "line_num": 315,
+    "snippet": "summary = _summarize_with_gemini(transcript, url)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/error_handler.py",
+    "line_num": 30,
+    "snippet": "\"WebSocketError\": \"Boss, Gemini connection drop ho gaya. Reconnect kar raha hoon.\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/error_handler.py",
+    "line_num": 140,
+    "snippet": "return get_api_key(\"gemini_api_key\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/error_handler.py",
+    "line_num": 149,
+    "snippet": "import google.generativeai as genai",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/error_handler.py",
+    "line_num": 163,
+    "snippet": "model_name=\"gemini-2.5-flash\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/error_handler.py",
+    "line_num": 180,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/error_handler.py",
+    "line_num": 220,
+    "snippet": "import google.generativeai as genai",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/error_handler.py",
+    "line_num": 223,
+    "snippet": "model = genai.GenerativeModel(model_name=\"gemini-3.5-flash-lite\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/error_handler.py",
+    "line_num": 239,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 27,
+    "snippet": "return get_api_key(\"gemini_api_key\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 31,
+    "snippet": "import google.generativeai as genai",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 59,
+    "snippet": "ai_policy.assert_cloud_ai_allowed(\"Gemini Code Runner\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 64,
+    "snippet": "model_name=\"gemini-2.5-flash\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 79,
+    "snippet": "response = model.generate_content(",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 143,
+    "snippet": "import google.generativeai as genai",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 145,
+    "snippet": "model = genai.GenerativeModel(\"gemini-2.5-flash\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 147,
+    "snippet": "response = model.generate_content(",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 161,
+    "snippet": "import google.generativeai as genai",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 163,
+    "snippet": "model = genai.GenerativeModel(\"gemini-2.5-flash\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 178,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 396,
+    "snippet": "import google.generativeai as genai",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 398,
+    "snippet": "model     = genai.GenerativeModel(model_name=\"gemini-2.5-flash\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/executor.py",
+    "line_num": 406,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/planner.py",
+    "line_num": 177,
+    "snippet": "return get_api_key(\"gemini_api_key\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/planner.py",
+    "line_num": 206,
+    "snippet": "# 2. Cloud Fallback (Guarded by AI Policy)",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "agent/planner.py",
+    "line_num": 213,
+    "snippet": "ai_policy.assert_cloud_ai_allowed(\"Gemini Planner\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/planner.py",
+    "line_num": 214,
+    "snippet": "import google.generativeai as genai",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/planner.py",
+    "line_num": 224,
+    "snippet": "response = model.generate_content(user_input)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/planner.py",
+    "line_num": 291,
+    "snippet": "# 2. Cloud Fallback (Guarded by AI Policy)",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "agent/planner.py",
+    "line_num": 297,
+    "snippet": "ai_policy.assert_cloud_ai_allowed(\"Gemini Replan\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/planner.py",
+    "line_num": 298,
+    "snippet": "import google.generativeai as genai",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/planner.py",
+    "line_num": 322,
+    "snippet": "response = model.generate_content(prompt)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "agent/task_planner.py",
+    "line_num": 411,
+    "snippet": "\"\"\"Generates structured typed steps via local Ollama LLM or Cloud Fallback.\"\"\"",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "agent/task_planner.py",
+    "line_num": 459,
+    "snippet": "# Cloud fallback if needed",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "agent/task_planner.py",
+    "line_num": 461,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "config/__init__.py",
+    "line_num": 24,
+    "snippet": "if os.environ.get(\"GEMINI_API_KEY\"):",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "config/__init__.py",
+    "line_num": 25,
+    "snippet": "data[\"gemini_api_key\"] = os.environ[\"GEMINI_API_KEY\"]",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "config/__init__.py",
+    "line_num": 33,
+    "snippet": "def get_api_key(key_name: str = \"gemini_api_key\") -> str:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "config/__init__.py",
+    "line_num": 41,
+    "snippet": "return os.environ.get(\"GEMINI_API_KEY\", val)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "config/__init__.py",
+    "line_num": 43,
+    "snippet": "DEFAULT_GEMINI_MODEL = \"gemini-3.5-flash-lite\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "config/__init__.py",
+    "line_num": 46,
+    "snippet": "return os.environ.get(\"GEMINI_MODEL\", DEFAULT_GEMINI_MODEL)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 1,
+    "snippet": "# core/ai_multitier_engine.py",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 4,
+    "snippet": "# Tier 2: Cloud Gemini (gemini-3.6-flash) \u2014 Resilient fallback when local model is offline/times out",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 21,
+    "snippet": "_EXHAUSTED_GEMINI_MODELS: Dict[str, float] = {}",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 38,
+    "snippet": "- Tier 2: Google GenAI gemini-3.6-flash fallback.",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 50,
+    "snippet": "self.gemini_api_key: Optional[str] = None",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 53,
+    "snippet": "self.cloud_model: str = \"gemini-3.5-flash-lite\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 69,
+    "snippet": "redacted = re.sub(r'(AQ\\.[a-zA-Z0-9_\\-]{20,})', '[REDACTED_GEMINI_KEY]', redacted)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 119,
+    "snippet": "self.gemini_api_key = cfg.get(\"gemini_api_key\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 216,
+    "snippet": "Tier 2: Cloud Gemini (gemini-3.6-flash)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 279,
+    "snippet": "logger.info(\"[AIBrain] [Tier 1: Ollama] Offline. Escalating to Tier 2 Cloud Fallback...\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 296,
+    "snippet": "# TIER 2 & 3: Cloud Fallbacks (Guarded by AI Policy Gate)",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 301,
+    "snippet": "ai_policy.assert_cloud_ai_allowed(\"Gemini Cloud Fallback\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 311,
+    "snippet": "# TIER 2: Cloud Gemini",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 312,
+    "snippet": "if self.gemini_api_key:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 314,
+    "snippet": "from google.genai import types",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 316,
+    "snippet": "gemini_candidates = [",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 317,
+    "snippet": "self.cloud_model,",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 318,
+    "snippet": "\"gemini-3.5-flash-lite\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 319,
+    "snippet": "\"gemini-3.6-flash\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 324,
+    "snippet": "gemini_candidates.sort(key=lambda m: 1 if _EXHAUSTED_GEMINI_MODELS.get(m, 0) > now_t else 0)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 326,
+    "snippet": "for model_name in gemini_candidates:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 328,
+    "snippet": "logger.info(f\"[AIBrain] [Tier 2: Gemini] Querying '{model_name}'...\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 330,
+    "snippet": "client = genai.Client(api_key=self.gemini_api_key, http_options=types.HttpOptions(timeout=10000))",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 337,
+    "snippet": "response = client.models.generate_content(",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 347,
+    "snippet": "logger.info(f\"[AIBrain] [Tier 2: Gemini] Generated response with '{model_name}' in {duration_ms}ms\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 348,
+    "snippet": "_EXHAUSTED_GEMINI_MODELS.pop(model_name, None)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 356,
+    "snippet": "\"tier\": \"TIER_2_GEMINI\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 364,
+    "snippet": "_EXHAUSTED_GEMINI_MODELS[model_name] = time.time() + 60.0",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 365,
+    "snippet": "logger.warning(f\"[AIBrain] [Tier 2: Gemini] Model '{model_name}' failed: {ge}. Trying fallback candidate...\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_multitier_engine.py",
+    "line_num": 368,
+    "snippet": "get_runtime_supervisor().record_failure(\"CLOUD_PROVIDER\", offline=False, error_msg=str(ge), category=\"GEMINI_FAILOVER\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_policy.py",
+    "line_num": 23,
+    "snippet": "\"gemini_calls\": 0",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_policy.py",
+    "line_num": 54,
+    "snippet": "\"gemini_calls\": _TELEMETRY[\"gemini_calls\"],",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_policy.py",
+    "line_num": 55,
+    "snippet": "\"zero_cloud_verified\": (_TELEMETRY[\"gemini_calls\"] == 0 and _TELEMETRY[\"cloud_attempts\"] == _TELEMETRY[\"cloud_blocked\"])",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/ai_policy.py",
+    "line_num": 63,
+    "snippet": "_TELEMETRY[\"gemini_calls\"] = 0",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/command_pipeline.py",
+    "line_num": 1166,
+    "snippet": "# Multi-Tier AI Brain: Tier 1 Ollama -> Tier 2 Gemini 3.6 Flash -> Tier 3 OpenRouter",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "core/command_pipeline.py",
+    "line_num": 1167,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/command_pipeline.py",
+    "line_num": 1199,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/diagnostics.py",
+    "line_num": 37,
+    "snippet": "gemini_sub = subs.get(\"gemini\", {})",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/diagnostics.py",
+    "line_num": 45,
+    "snippet": "elif gemini_sub.get(\"state\") == SubsystemState.HEALTHY:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/diagnostics.py",
+    "line_num": 46,
+    "snippet": "active_ai = f\"Cloud Gemini ({gemini_sub.get('current_provider') or 'gemini-3.5-flash-lite'})\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/diagnostics.py",
+    "line_num": 105,
+    "snippet": "\"gemini_state\": gemini_sub.get(\"state\", \"HEALTHY\"),",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/diagnostics.py",
+    "line_num": 106,
+    "snippet": "\"gemini_latency_ms\": gemini_sub.get(\"latency_ms\", 0.0),",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/health_check.py",
+    "line_num": 43,
+    "snippet": "(\"google-genai\", \"google.genai\"),",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/health_check.py",
+    "line_num": 70,
+    "snippet": "results[\"Fallback\"] = (True, \"Gemini (only when Ollama is unavailable)\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/health_check.py",
+    "line_num": 76,
+    "snippet": "key = data.get(\"gemini_api_key\", \"\").strip()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/health_check.py",
+    "line_num": 78,
+    "snippet": "results[\"AI Provider\"] = (True, \"Gemini API Key configured (Ollama Offline)\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/health_check.py",
+    "line_num": 80,
+    "snippet": "results[\"AI Provider\"] = (False, \"Gemini API key empty or default\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/health_check.py",
+    "line_num": 180,
+    "snippet": "redacted = re.sub(r'(AQ\\.[a-zA-Z0-9_\\-]{20,})', '[REDACTED_GEMINI_KEY]', redacted)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/local_ai_provider.py",
+    "line_num": 3,
+    "snippet": "# Strictly 100% Local Inference via Ollama (No Cloud AI, No Gemini Fallback)",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "core/local_ai_provider.py",
+    "line_num": 130,
+    "snippet": "Strictly 100% offline, zero cloud calls, zero Gemini fallbacks.",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/runtime_supervisor.py",
+    "line_num": 27,
+    "snippet": "redacted = re.sub(r'(AQ\\.[a-zA-Z0-9_\\-]{20,})', '[REDACTED_GEMINI_KEY]', redacted)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/runtime_supervisor.py",
+    "line_num": 133,
+    "snippet": "\"CLOUD PROVIDER\": SubsystemTelemetry(\"CLOUD PROVIDER\", \"Tier 2: Gemini 3.5/3.6 Flash\"),",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/runtime_supervisor.py",
+    "line_num": 164,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/runtime_supervisor.py",
+    "line_num": 166,
+    "snippet": "return bool(eng and eng.gemini_api_key and not eng.gemini_api_key.startswith(\"YOUR_\"))",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "core/tts_engine.py",
+    "line_num": 31,
+    "snippet": "Works independently of Gemini Live, ensuring JARVIS is NEVER silently mute.",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "jarvis_api/config.py",
+    "line_num": 24,
+    "snippet": "gemini_api_key: Optional[str] = None,",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "jarvis_api/config.py",
+    "line_num": 36,
+    "snippet": "self.gemini_api_key = (",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "jarvis_api/config.py",
+    "line_num": 37,
+    "snippet": "gemini_api_key or",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "jarvis_api/config.py",
+    "line_num": 38,
+    "snippet": "os.environ.get(\"GEMINI_API_KEY\") or",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "jarvis_api/config.py",
+    "line_num": 39,
+    "snippet": "disk_cfg.get(\"gemini_api_key\") or",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "jarvis_api/config.py",
+    "line_num": 86,
+    "snippet": "\"has_gemini_key\": bool(self.gemini_api_key),",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/adaptive_intelligence.py",
+    "line_num": 1354,
+    "snippet": "# PROMPT CONTEXT SYNTHESIZER FOR GEMINI",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "memory/adaptive_intelligence.py",
+    "line_num": 1364,
+    "snippet": "\"\"\"Synthesizes a compact, highly relevant contextual prompt block for Gemini.\"\"\"",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "memory/config_manager.py",
+    "line_num": 25,
+    "snippet": "def save_api_keys(gemini_api_key: str) -> None:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/config_manager.py",
+    "line_num": 35,
+    "snippet": "data[\"gemini_api_key\"] = gemini_api_key.strip()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/config_manager.py",
+    "line_num": 53,
+    "snippet": "def get_gemini_key() -> str | None:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/config_manager.py",
+    "line_num": 54,
+    "snippet": "return load_api_keys().get(\"gemini_api_key\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/config_manager.py",
+    "line_num": 58,
+    "snippet": "key = get_gemini_key()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/memory_manager.py",
+    "line_num": 239,
+    "snippet": "def _load_gemini_key() -> str:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/memory_manager.py",
+    "line_num": 244,
+    "snippet": "return str(d.get(\"gemini_api_key\", \"\")).strip()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/memory_manager.py",
+    "line_num": 248,
+    "snippet": "return os.environ.get(\"GEMINI_API_KEY\", \"\").strip()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/memory_manager.py",
+    "line_num": 266,
+    "snippet": "# 2. Guarded Cloud Fallbacks (Blocked by default in 100% Local Mode)",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "memory/memory_manager.py",
+    "line_num": 273,
+    "snippet": "g_key = _load_gemini_key()",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/memory_manager.py",
+    "line_num": 276,
+    "snippet": "from google.genai import types",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/memory_manager.py",
+    "line_num": 277,
+    "snippet": "g_client = genai.Client(api_key=g_key)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/memory_manager.py",
+    "line_num": 279,
+    "snippet": "response = g_client.models.generate_content(",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "memory/memory_manager.py",
+    "line_num": 280,
+    "snippet": "model=\"gemini-flash-latest\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scratch/test_live_model.py",
+    "line_num": 5,
+    "snippet": "from google.genai import types",
+    "classification": "TEST"
+  },
+  {
+    "file": "scratch/test_live_model.py",
+    "line_num": 10,
+    "snippet": "return json.load(f)[\"gemini_api_key\"]",
+    "classification": "TEST"
+  },
+  {
+    "file": "scratch/test_live_model.py",
+    "line_num": 13,
+    "snippet": "client = genai.Client(api_key=get_api_key(), http_options={\"api_version\": \"v1beta\"})",
+    "classification": "TEST"
+  },
+  {
+    "file": "scratch/test_live_model.py",
+    "line_num": 26,
+    "snippet": "async with client.aio.live.connect(model=model_name, config=config) as session:",
+    "classification": "TEST"
+  },
+  {
+    "file": "scratch/test_live_model.py",
+    "line_num": 29,
+    "snippet": "await session.send_realtime_input(media={\"data\": pcm_chunk, \"mime_type\": \"audio/pcm\"})",
+    "classification": "TEST"
+  },
+  {
+    "file": "scratch/test_live_model.py",
+    "line_num": 38,
+    "snippet": "\"models/gemini-2.5-flash-native-audio-latest\",",
+    "classification": "TEST"
+  },
+  {
+    "file": "scratch/test_live_model.py",
+    "line_num": 39,
+    "snippet": "\"gemini-2.0-flash-exp\",",
+    "classification": "TEST"
+  },
+  {
+    "file": "scratch/test_live_model.py",
+    "line_num": 40,
+    "snippet": "\"models/gemini-2.0-flash-exp\",",
+    "classification": "TEST"
+  },
+  {
+    "file": "scratch/test_live_model.py",
+    "line_num": 41,
+    "snippet": "\"gemini-2.0-flash-realtime-exp\",",
+    "classification": "TEST"
+  },
+  {
+    "file": "scratch/test_live_model.py",
+    "line_num": 42,
+    "snippet": "\"gemini-2.5-flash\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/audit_cloud_ai.py",
+    "line_num": 8,
+    "snippet": "r\"google\\.genai\", r\"google\\.generativeai\", r\"genai\\.Client\", r\"generate_content\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/audit_cloud_ai.py",
+    "line_num": 9,
+    "snippet": "r\"send_realtime\", r\"gemini-2\", r\"gemini-1\", r\"gemini\", r\"cloud_model\",",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/audit_cloud_ai.py",
+    "line_num": 10,
+    "snippet": "r\"cloud fallback\", r\"AI_MULTITIER\", r\"live\\.connect\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 164,
+    "snippet": "from google.genai import types",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 178,
+    "snippet": "# 2g. Live Gemini Live audio dispatch (media=Blob)",
+    "classification": "COMMENT/DOCUMENTATION"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 183,
+    "snippet": "from google.genai import types",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 187,
+    "snippet": "api_key = json.load(f)[\"gemini_api_key\"]",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 190,
+    "snippet": "client = genai.Client(api_key=api_key, http_options={\"api_version\": \"v1beta\"})",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 192,
+    "snippet": "model = \"models/gemini-2.5-flash-native-audio-latest\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 193,
+    "snippet": "async with client.aio.live.connect(model=model, config=config) as session:",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 195,
+    "snippet": "await session.send_realtime_input(media=types.Blob(data=silence, mime_type=\"audio/pcm;rate=16000\"))",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 199,
+    "snippet": "record(\"Gemini Live audio dispatch (media=Blob)\", \"PASS\" if live_ok else \"FAIL\", \"Connected & sent types.Blob PCM chunk\"",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 201,
+    "snippet": "record(\"Gemini Live audio dispatch (media=Blob)\", \"PARTIAL\", str(e))",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/comprehensive_az_audit.py",
+    "line_num": 204,
+    "snippet": "record(\"Gemini Live transcript reception\", \"PASS\", \"Verified in Phase 1 test suite & test_live_mic_to_gemini.py\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/e2e_real_voice_validation.py",
+    "line_num": 76,
+    "snippet": "print(\"  - STT Transcription  : VERIFIED (Gemini Live API STT pipeline ready)\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/reproduce_open_crash.py",
+    "line_num": 50,
+    "snippet": "print(\"\\n--- TEST 3: _execute_tool via Gemini Live ToolCall mock ---\")",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/run_all_27_regression_tests.py",
+    "line_num": 135,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/run_all_27_regression_tests.py",
+    "line_num": 144,
+    "snippet": "# 10. Cloud fallback",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/run_all_27_regression_tests.py",
+    "line_num": 145,
+    "snippet": "start_test(10, \"Cloud Fallback\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/run_all_27_regression_tests.py",
+    "line_num": 147,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/run_all_27_regression_tests.py",
+    "line_num": 151,
+    "snippet": "assert c_res.get(\"tier\") == \"TIER_2_GEMINI\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/run_all_27_regression_tests.py",
+    "line_num": 152,
+    "snippet": "log_test(10, \"Cloud Fallback\", \"PASSED\", f\"Model: {c_res.get('model')} | Text: '{c_res.get('text')[:40]}...'\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/run_all_27_regression_tests.py",
+    "line_num": 154,
+    "snippet": "log_test(10, \"Cloud Fallback\", \"FAILED\", str(e))",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/run_real_world_soak.py",
+    "line_num": 30,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/run_real_world_soak.py",
+    "line_num": 60,
+    "snippet": "print(\"[-] Warming up subsystems (Ollama, TTS, OpenCV, sounddevice, Gemini)...\", flush=True)",
+    "classification": "ACTIVE RUNTIME"
+  },
+  {
+    "file": "scripts/test_20_consecutive_conversations.py",
+    "line_num": 24,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_20_consecutive_conversations.py",
+    "line_num": 99,
+    "snippet": "\"assert_reply_has\": [\"gemini\", \"cloud\", \"fallback\", \"tier\", \"switch\"]",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_crash_containment.py",
+    "line_num": 53,
+    "snippet": "with patch(\"google.genai.Client\", side_effect=ConnectionError(\"Cloud endpoint down (simulated)\")):",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_duplicate_ai_calls.py",
+    "line_num": 16,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 19,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 36,
+    "snippet": "print(\"\\n[-] TEST 1: Ollama Unavailable -> Tier 2 Gemini Recovery\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 43,
+    "snippet": "# 2. Confirm fallback to Tier 2 Gemini",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 45,
+    "snippet": "assert res.get(\"tier\") == \"TIER_2_GEMINI\", f\"Expected fallback to TIER_2_GEMINI, got {res.get('tier')}\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 54,
+    "snippet": "# 2. Failure Injection: GEMINI UNAVAILABLE (503 Service Unavailable)",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 56,
+    "snippet": "print(\"\\n[-] TEST 2: Gemini Cloud Unavailable -> Tier 3 OpenRouter / Fallback\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 57,
+    "snippet": "with patch(\"google.genai.Client\", side_effect=Exception(\"503 Service Unavailable\")):",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 60,
+    "snippet": "assert \"text\" in res_cloud_fail, \"Missing text in fallback response during Gemini outage\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 61,
+    "snippet": "print(f\"  [+] Gemini 503 detected. Handled safely: Tier={res_cloud_fail.get('tier')}, text='{res_cloud_fail.get('text')[",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 101,
+    "snippet": "with patch(\"google.genai.Client\") as mock_gclient:",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_failure_injection.py",
+    "line_num": 103,
+    "snippet": "mock_inst.models.generate_content.return_value = MagicMock(text=\"\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_gemini_live_audio.py",
+    "line_num": 6,
+    "snippet": "from google.genai import types",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_gemini_live_audio.py",
+    "line_num": 11,
+    "snippet": "return json.load(f)[\"gemini_api_key\"]",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_gemini_live_audio.py",
+    "line_num": 14,
+    "snippet": "client = genai.Client(",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_gemini_live_audio.py",
+    "line_num": 25,
+    "snippet": "model = \"models/gemini-2.5-flash-native-audio-latest\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_gemini_live_audio.py",
+    "line_num": 26,
+    "snippet": "print(f\"[TEST] Connecting to Gemini Live with model '{model}'...\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_gemini_live_audio.py",
+    "line_num": 28,
+    "snippet": "async with client.aio.live.connect(model=model, config=config) as session:",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_gemini_live_audio.py",
+    "line_num": 34,
+    "snippet": "await session.send_realtime_input(",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_live_mic_to_gemini.py",
+    "line_num": 14,
+    "snippet": "from google.genai import types",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_live_mic_to_gemini.py",
+    "line_num": 19,
+    "snippet": "return json.load(f)[\"gemini_api_key\"]",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_live_mic_to_gemini.py",
+    "line_num": 22,
+    "snippet": "client = genai.Client(",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_live_mic_to_gemini.py",
+    "line_num": 33,
+    "snippet": "model = \"models/gemini-2.5-flash-native-audio-latest\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_live_mic_to_gemini.py",
+    "line_num": 34,
+    "snippet": "print(f\"[LIVE TEST] Connecting to Gemini Live ({model})...\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_live_mic_to_gemini.py",
+    "line_num": 64,
+    "snippet": "async with client.aio.live.connect(model=model, config=config) as session:",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_live_mic_to_gemini.py",
+    "line_num": 65,
+    "snippet": "print(\"[LIVE TEST] \u2705 Gemini Live session connected!\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_live_mic_to_gemini.py",
+    "line_num": 72,
+    "snippet": "await session.send_realtime_input(",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_live_mic_to_gemini.py",
+    "line_num": 106,
+    "snippet": "print(\"   real speech will stream to Gemini Live.\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_microphone_input.py",
+    "line_num": 115,
+    "snippet": "def test_05_blob_construction_gemini_format(self):",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_microphone_input.py",
+    "line_num": 116,
+    "snippet": "\"\"\"Verify google.genai types.Blob constructor works for Gemini Live realtime audio.\"\"\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_microphone_input.py",
+    "line_num": 119,
+    "snippet": "from google.genai import types",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_microphone_input.py",
+    "line_num": 127,
+    "snippet": "print(\"  google.genai not installed or mock environment; skipping direct blob test.\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_ollama_recovery.py",
+    "line_num": 19,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_ollama_recovery.py",
+    "line_num": 44,
+    "snippet": "assert res.get(\"tier\") == \"TIER_2_GEMINI\", f\"Expected TIER_2_GEMINI fallback, got {res.get('tier')}\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_real_gemini_open_app.py",
+    "line_num": 14,
+    "snippet": "from google.genai import types",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_real_gemini_open_app.py",
+    "line_num": 32,
+    "snippet": "async def test_gemini_live():",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_real_gemini_open_app.py",
+    "line_num": 34,
+    "snippet": "client = genai.Client(",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_real_gemini_open_app.py",
+    "line_num": 51,
+    "snippet": "print(f\"[TEST] Connecting to Gemini Live ({LIVE_MODEL})...\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_real_gemini_open_app.py",
+    "line_num": 52,
+    "snippet": "async with client.aio.live.connect(model=LIVE_MODEL, config=config) as session:",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_real_gemini_open_app.py",
+    "line_num": 60,
+    "snippet": "print(\"[TEST] Waiting for Gemini Live response...\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_real_gemini_open_app.py",
+    "line_num": 93,
+    "snippet": "print(f\"[TEST] Sending function response back to Gemini: {fr}\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_real_gemini_open_app.py",
+    "line_num": 102,
+    "snippet": "asyncio.run(test_gemini_live())",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_self_diagnostics.py",
+    "line_num": 23,
+    "snippet": "self.assertTrue(\"Ollama\" in reply or \"Gemini\" in reply)",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_voice_stress_and_bargein.py",
+    "line_num": 20,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_zero_cloud_mode.py",
+    "line_num": 18,
+    "snippet": "from core.ai_multitier_engine import get_ai_engine",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_zero_cloud_mode.py",
+    "line_num": 76,
+    "snippet": "assert final_telem[\"gemini_calls\"] == 0, f\"VIOLATION: gemini_calls={final_telem['gemini_calls']} (MUST BE 0)\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "scripts/test_zero_cloud_mode.py",
+    "line_num": 84,
+    "snippet": "print(f\"  GEMINI_CALLS:     {final_telem['gemini_calls']} (PASSED: STRICTLY 0)\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_contextual_adaptive.py",
+    "line_num": 28,
+    "snippet": "24. Compact Gemini context",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_contextual_adaptive.py",
+    "line_num": 250,
+    "snippet": "# 24. Compact Gemini context",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_contextual_adaptive.py",
+    "line_num": 251,
+    "snippet": "def test_compact_gemini_context(self):",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 2,
+    "snippet": "# Unit Test Suite for Memory Extractor Gemini Fallback (Phase 6A)",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 10,
+    "snippet": "\"\"\"Verify OpenRouter -> Gemini -> Graceful Failure fallback chain.\"\"\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 20,
+    "snippet": "mock_genai.Client.assert_not_called()",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 22,
+    "snippet": "@patch(\"memory.memory_manager._load_gemini_key\", return_value=\"AIzaDummyKey\")",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 23,
+    "snippet": "def test_openrouter_fails_gemini_fallback(self, mock_gem_key):",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 24,
+    "snippet": "\"\"\"When OpenRouter fails or is unconfigured, Gemini API should be used as fallback.\"\"\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 29,
+    "snippet": "mock_g_client.models.generate_content.return_value = mock_response",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 32,
+    "snippet": "patch(\"google.genai.Client\", return_value=mock_g_client):",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 35,
+    "snippet": "mock_g_client.models.generate_content.assert_called_once()",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 38,
+    "snippet": "\"\"\"When both OpenRouter and Gemini API fail, it should return empty result without crashing.\"\"\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_memory_fallback.py",
+    "line_num": 40,
+    "snippet": "patch(\"memory.memory_manager._load_gemini_key\", return_value=\"\"):",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_runtime_routing_fixes.py",
+    "line_num": 194,
+    "snippet": "mock_gemini_resp = MagicMock()",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_runtime_routing_fixes.py",
+    "line_num": 195,
+    "snippet": "mock_gemini_resp.text = \"Boss, VS Code mein Python code visible hai. Kya main code structure inspect karun?\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_runtime_routing_fixes.py",
+    "line_num": 197,
+    "snippet": "with patch(\"google.genai.Client\") as mock_client_cls:",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_runtime_routing_fixes.py",
+    "line_num": 199,
+    "snippet": "mock_client.models.generate_content.return_value = mock_gemini_resp",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_runtime_routing_fixes.py",
+    "line_num": 213,
+    "snippet": "mock_gemini_resp = MagicMock()",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_runtime_routing_fixes.py",
+    "line_num": 214,
+    "snippet": "mock_gemini_resp.text = \"Boss, VS Code mein AttributeError dikh raha hai. Kya root cause identify karun?\"",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_runtime_routing_fixes.py",
+    "line_num": 216,
+    "snippet": "with patch(\"google.genai.Client\") as mock_client_cls:",
+    "classification": "TEST"
+  },
+  {
+    "file": "tests/test_runtime_routing_fixes.py",
+    "line_num": 218,
+    "snippet": "mock_client.models.generate_content.return_value = mock_gemini_resp",
+    "classification": "TEST"
+  }
+]

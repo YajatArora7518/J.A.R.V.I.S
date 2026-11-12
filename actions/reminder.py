@@ -4,9 +4,11 @@ import subprocess
 import os
 import sys
 from datetime import datetime
+from xml.sax.saxutils import escape
+import uuid
 
 
-def reminder(
+def _schedule_reminder(
     parameters: dict,
     response: str | None = None,
     player=None,
@@ -32,13 +34,13 @@ def reminder(
         return "I need both a date and a time to set a reminder."
 
     try:
-        target_dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        target_dt = datetime.fromisoformat(f"{date_str}T{time_str}")
 
         if target_dt <= datetime.now():
             return "That time is already in the past."
 
-        task_name    = f"JARVISReminder_{target_dt.strftime('%Y%m%d_%H%M')}"
-        safe_message = message.replace('"', '').replace("'", "").strip()[:200]
+        task_name    = f"JARVISReminder_{target_dt.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        safe_message = str(message).strip()[:1000]
 
         python_exe = sys.executable
         if python_exe.lower().endswith("python.exe"):
@@ -53,7 +55,15 @@ def reminder(
         )
 
         script_code = f'''import sys, os, time
-sys.path.insert(0, r"{project_root}")
+sys.path.insert(0, {project_root!r})
+message = {safe_message!r}
+
+try:
+    import win32com.client
+    voice = win32com.client.Dispatch("SAPI.SpVoice")
+    voice.Speak("Reminder. " + message, 0)
+except Exception:
+    pass
 
 try:
     import winsound
@@ -64,19 +74,10 @@ except Exception:
     pass
 
 try:
-    from win10toast import ToastNotifier
-    ToastNotifier().show_toast(
-        "JARVIS Reminder",
-        "{safe_message}",
-        duration=15,
-        threaded=False
-    )
+    import win32com.client
+    win32com.client.Dispatch("WScript.Shell").Popup(message, 15, "JARVIS Reminder", 0x40)
 except Exception:
-    try:
-        import subprocess
-        subprocess.run(["msg", "*", "/TIME:30", "{safe_message}"], shell=True)
-    except Exception:
-        pass
+    pass  # Speech/beeps remain available; never leave an indefinite modal task.
 
 time.sleep(3)
 try:
@@ -90,7 +91,7 @@ except Exception:
         xml_content = f'''<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>JARVIS Reminder: {safe_message}</Description>
+    <Description>JARVIS Reminder: {escape(safe_message)}</Description>
   </RegistrationInfo>
   <Triggers>
     <TimeTrigger>
@@ -100,8 +101,8 @@ except Exception:
   </Triggers>
   <Actions>
     <Exec>
-      <Command>{python_exe}</Command>
-      <Arguments>"{notify_script}"</Arguments>
+      <Command>{escape(python_exe)}</Command>
+      <Arguments>"{escape(notify_script)}"</Arguments>
     </Exec>
   </Actions>
   <Settings>
@@ -126,8 +127,9 @@ except Exception:
             f.write(xml_content)
 
         result = subprocess.run(
-            f'schtasks /Create /TN "{task_name}" /XML "{xml_path}" /F',
-            shell=True, capture_output=True, text=True
+            ["schtasks", "/Create", "/TN", task_name, "/XML", xml_path, "/F"],
+            capture_output=True, text=True, timeout=15,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
 
         try:
@@ -154,3 +156,16 @@ except Exception:
 
     except Exception as e:
         return f"Something went wrong while scheduling the reminder: {str(e)[:80]}"
+
+
+def reminder(parameters: dict, response=None, player=None, session_memory=None, **kwargs) -> dict:
+    p = dict(parameters or {})
+    if not p.get("date") or not p.get("time"):
+        from core.reminder_parser import parse_reminder_query
+        try:
+            p.update(parse_reminder_query(p.get("query", "")))
+        except ValueError as exc:
+            return {"success": False, "verified": False, "requires_details": True, "message": str(exc)}
+    message = _schedule_reminder(p, response=response, player=player, session_memory=session_memory)
+    success = message.startswith("Reminder set for")
+    return {"success": success, "verified": success, "message": message, "date": p.get("date"), "time": p.get("time")}

@@ -363,7 +363,14 @@ def execute_system_capability(capability: str, args: Dict[str, Any]) -> Dict[str
     # =========================================================
     # 6. POWER & WEB SEARCH
     # =========================================================
-    elif cap in ["shutdown", "restart", "sleep", "lock"]:
+    elif cap in ['shutdown', 'restart']:
+        if args.get('confirmed') is not True:
+            return {'success': False, 'verified': False, 'requires_confirmation': True,
+                    'status': 'CONFIRMATION_REQUIRED', 'message': 'Pehle chat ya voice par power request confirm karo.'}
+        from actions.computer_settings import restart_computer, shutdown_computer
+        return (restart_computer if cap == 'restart' else shutdown_computer)()
+
+    elif cap in ["sleep", "lock"]:
         from actions.computer_control import computer_control
         res = computer_control({"action": cap})
         return {

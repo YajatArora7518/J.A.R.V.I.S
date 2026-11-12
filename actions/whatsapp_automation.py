@@ -125,6 +125,10 @@ def parse_whatsapp_command(text: str) -> Dict[str, str]:
         return {"contact": "", "message": ""}
 
     t = text.strip()
+    from actions.social_chat import parse_social_command
+    parsed = parse_social_command(t, include_whatsapp=True)
+    if parsed and parsed["platform"] == "whatsapp":
+        return {"contact": parsed.get("recipient", ""), "message": parsed.get("message_text", "")}
 
     # 1. English patterns
     m = re.search(r"send\s+([a-zA-Z0-9_\s]+?)\s+a\s+whatsapp\s+message\s+(?:saying|that)\s+(.+)", t, re.IGNORECASE)
@@ -152,12 +156,42 @@ def parse_whatsapp_command(text: str) -> Dict[str, str]:
     if m:
         return {"contact": m.group(1).strip(), "message": m.group(2).strip()}
 
+    # 2a. "X ko Y bhej" / "X ko Y send kar" / "X ko Y bhej de"
+    m = re.search(r"([a-zA-Z0-9_\s]+?)\s+ko\s+(.+?)\s+(?:bhej|bhej\s*de|bhejo|send\s+kar|send\s+karo|send\s+kar\s*do)\s*$", t, re.IGNORECASE)
+    if m:
+        return {"contact": m.group(1).strip(), "message": m.group(2).strip()}
+
+    # 2b. "X ko bol Y" / "X ko bolo Y" / "X ko bol de Y"
+    m = re.search(r"([a-zA-Z0-9_\s]+?)\s+ko\s+(?:bol|bolo|bol\s*de|bolna)\s+(.+)", t, re.IGNORECASE)
+    if m:
+        return {"contact": m.group(1).strip(), "message": m.group(2).strip()}
+
+    # 2c. "X ko message kar Y" / "X ko message bhej Y"
+    m = re.search(r"([a-zA-Z0-9_\s]+?)\s+ko\s+(?:message|msg)\s+(?:kar|karo|kar\s*do|bhej)\s+(.+)", t, re.IGNORECASE)
+    if m:
+        return {"contact": m.group(1).strip(), "message": m.group(2).strip()}
+
+    # 2d. "X ko ping kar" / "X ko ping karo" (no message body)
+    m = re.search(r"([a-zA-Z0-9_\s]+?)\s+ko\s+(?:ping|msg|message)\s+(?:kar|karo|kar\s*do)\s*$", t, re.IGNORECASE)
+    if m:
+        return {"contact": m.group(1).strip(), "message": ""}
+
     m = re.search(r"([a-zA-Z0-9_\s]+?)\s+ko\s+whatsapp\s+(?:kar do|karo)", t, re.IGNORECASE)
     if m:
         return {"contact": m.group(1).strip(), "message": ""}
 
     # 3. Call patterns
     m = re.search(r"whatsapp\s+(?:pe|par)\s+([a-zA-Z0-9_\s]+?)\s+ko\s+call\b", t, re.IGNORECASE)
+    if m:
+        return {"contact": m.group(1).strip(), "message": ""}
+
+    # 3a. "X ko call laga" / "X ko call kar" / "X ko voice call laga"
+    m = re.search(r"([a-zA-Z0-9_\s]+?)\s+ko\s+(?:voice\s+)?call\s+(?:laga|kar|karo|kar\s*do|lagao)\s*$", t, re.IGNORECASE)
+    if m:
+        return {"contact": m.group(1).strip(), "message": ""}
+
+    # 3b. "X ko video call laga" / "X ko video call kar"
+    m = re.search(r"([a-zA-Z0-9_\s]+?)\s+ko\s+video\s+call\s+(?:laga|kar|karo|kar\s*do|lagao)\s*$", t, re.IGNORECASE)
     if m:
         return {"contact": m.group(1).strip(), "message": ""}
 
@@ -184,6 +218,12 @@ def resolve_contact(query: str) -> Dict[str, Any]:
     if not query or not query.strip():
         return {"success": False, "status": "CONTACT_NOT_FOUND", "message": "No contact query specified.", "verified": False}
 
+    q_lower = query.strip().lower()
+    from actions.windows_whatsapp_desktop_executor import resolve_contact_ambiguity
+    saved = resolve_contact_ambiguity(query)
+    if saved.get('status') == 'AMBIGUOUS_CONTACT':
+        return {**saved, 'success': False, 'verified': False}
+    query = saved.get('contact', query)
     q_lower = query.strip().lower()
     matches = [c for c in KNOWN_CONTACTS if q_lower in c["name"].lower()]
 

@@ -12,12 +12,7 @@ logger = logging.getLogger("JARVIS.UniversalMessaging")
 
 
 # Mock/Sample Contact Registry for Ambiguity Resolution
-MOCK_CONTACTS_CATALOG = [
-    {"name": "Rahul Sharma", "alias": "rahul", "phone": "+919876543210", "platform": "whatsapp"},
-    {"name": "Rahul Verma", "alias": "rahul", "phone": "+919876543211", "platform": "whatsapp"},
-    {"name": "Aman Gupta", "alias": "aman", "phone": "+919811122233", "platform": "discord"},
-    {"name": "Priya Singh", "alias": "priya", "phone": "+919822233344", "platform": "instagram"},
-]
+MOCK_CONTACTS_CATALOG = []  # Tests may inject fixtures; production resolves names in the actual app.
 
 _RECIPIENT_CACHE: Dict[str, Dict[str, Any]] = {}
 
@@ -53,7 +48,7 @@ def resolve_recipient_contact(recipient_query: str) -> Dict[str, Any]:
         res = {"status": "RESOLVED", "contact": matches[0]}
         _RECIPIENT_CACHE[query_norm] = res
     else:
-        res = {"status": "RESOLVED", "contact": {"name": recipient_query, "phone": recipient_query}}
+        res = {"status": "RESOLVED", "contact": {"name": recipient_query}}
         _RECIPIENT_CACHE[query_norm] = res
 
     return res
@@ -116,24 +111,8 @@ def send_universal_message(
         if instagram_meta_provider.check_health().get("configured"):
             return instagram_meta_provider.send_message(resolved_contact, message_text)
         
-        # Fallback to local automation
-        from actions.send_message import _send_instagram
-        res_str = _send_instagram(resolved_contact, message_text)
-        if "sent" in res_str.lower():
-            return {
-                "success": True,
-                "action": "send_message",
-                "platform": "instagram",
-                "message": res_str,
-                "verified": True
-            }
-        return {
-            "success": False,
-            "action": "send_message",
-            "platform": "instagram",
-            "message": "I couldn't confirm that the message was sent, so I won't claim it was.",
-            "verified": False
-        }
+        from actions.social_chat import social_chat
+        return social_chat({"platform": "instagram", "action": "send", "recipient": resolved_contact, "message_text": message_text})
 
     elif p_norm in ["discord", "disc"]:
         from actions.discord_automation import discord_provider
@@ -149,22 +128,7 @@ def send_universal_message(
 
     else:
         from actions.send_message import _send_generic
-        res_str = _send_generic(p_norm, resolved_contact, message_text)
-        if "sent" in res_str.lower():
-            return {
-                "success": True,
-                "action": "send_message",
-                "platform": p_norm,
-                "message": res_str,
-                "verified": True
-            }
-        return {
-            "success": False,
-            "action": "send_message",
-            "platform": p_norm,
-            "message": "I couldn't confirm that the message was sent, so I won't claim it was.",
-            "verified": False
-        }
+        return _send_generic(p_norm, resolved_contact, message_text)
 
 
 def read_universal_messages(platform: str = "", target: str = "") -> Dict[str, Any]:
@@ -175,8 +139,8 @@ def read_universal_messages(platform: str = "", target: str = "") -> Dict[str, A
     p_norm = (platform or "").lower().strip()
 
     if p_norm in ["whatsapp", "wa"]:
-        from actions.whatsapp_automation import whatsapp_read_messages
-        return whatsapp_read_messages(target)
+        from actions.whatsapp_desktop_dom import desktop_action
+        return desktop_action("read", target)
 
     elif p_norm in ["discord", "disc"]:
         from actions.discord_automation import discord_provider
@@ -185,6 +149,10 @@ def read_universal_messages(platform: str = "", target: str = "") -> Dict[str, A
     elif p_norm in ["telegram", "tg"]:
         from actions.telegram_automation import telegram_provider
         return telegram_provider.read_messages(target)
+
+    elif p_norm in ["instagram", "ig"]:
+        from actions.social_chat import social_chat
+        return social_chat({"platform": "instagram", "action": "read", "recipient": target})
 
     # Fallback to Aggregated Notification Engine
     from actions.notification_engine import notification_aggregator

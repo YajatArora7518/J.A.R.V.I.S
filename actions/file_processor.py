@@ -33,8 +33,29 @@ def _get_api_key() -> str:
 
 
 def _call_gemini(prompt: str, image_obj=None, audio_bytes=None, mime_type=None) -> str:
-    """Invokes Gemini using official google.genai Client with fallback."""
+    """Invokes Gemini using official google.genai Client with fallback, guarded by AI Policy."""
     global _CACHED_GENAI_CLIENT
+    
+    # 1. 100% Local AI Check
+    import core.ai_policy as ai_policy
+    if not ai_policy.is_cloud_ai_allowed():
+        try:
+            # Handle audio via Local STT
+            if audio_bytes is not None:
+                from core.local_stt import get_local_stt
+                stt_eng = get_local_stt()
+                transcript, _ = stt_eng.transcribe(audio_bytes)
+                return transcript
+            
+            # Handle text prompts via Local AI Provider
+            from core.local_ai_provider import get_local_ai_provider
+            provider = get_local_ai_provider()
+            return provider.chat(prompt, system="You are JARVIS file processor.")
+        except Exception as local_err:
+            pass
+
+        ai_policy.assert_cloud_ai_allowed("Gemini File Processor")
+
     api_key = _get_api_key()
     try:
         from google import genai

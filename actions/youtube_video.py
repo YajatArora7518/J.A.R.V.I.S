@@ -91,14 +91,12 @@ def _scrape_first_video_url(query: str) -> str | None:
     return None
 
 def _extract_video_id(url: str) -> str | None:
-    match = re.search(
-        r"(?:v=|\/v\/|youtu\.be\/|\/embed\/|\/shorts\/)([A-Za-z0-9_-]{11})", url
-    )
-    return match.group(1) if match else None
+    from actions.youtube_browser import video_id
+    return video_id(url)
 
 
 def _is_valid_youtube_url(url: str) -> bool:
-    return bool(re.search(r"(youtube\.com|youtu\.be)", url or ""))
+    return bool(_extract_video_id(url))
 
 
 def _ask_for_url(prompt_text: str = "YouTube video URL:") -> str | None:
@@ -122,10 +120,17 @@ def _get_transcript(video_id: str) -> str | None:
     if not _TRANSCRIPT_OK:
         return None
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        if hasattr(YouTubeTranscriptApi, 'list'):
+            class BoundedSession(requests.Session):
+                def request(self, *args, **kwargs):
+                    kwargs.setdefault('timeout', 5)
+                    return super().request(*args, **kwargs)
+            transcript_list = YouTubeTranscriptApi(http_client=BoundedSession()).list(video_id)
+        else:
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         transcript      = None
 
-        lang_priority = ["en", "tr", "de", "fr", "es", "it", "pt", "ru", "ja", "ko", "ar", "zh"]
+        lang_priority = ["hi", "en", "en-IN"]
 
         try:
             transcript = transcript_list.find_manually_created_transcript(lang_priority)
@@ -144,10 +149,10 @@ def _get_transcript(video_id: str) -> str | None:
             return None
 
         fetched = transcript.fetch()
-        return " ".join(entry["text"] for entry in fetched)
+        return " ".join(entry['text'] if isinstance(entry, dict) else entry.text for entry in fetched)
 
     except Exception as e:
-        print(f"[YouTube] ⚠️ Transcript fetch failed: {e}")
+        print('[YouTube] Captions unavailable.')
         return None
 
 
@@ -259,6 +264,11 @@ def _scrape_trending(region: str = "TR", max_results: int = 8) -> list[dict]:
         return []
 
 def _handle_play(parameters: dict, player) -> str:
+    from actions.youtube_browser import youtube_browser
+    return youtube_browser(parameters, player=player)
+
+
+def _legacy_handle_play(parameters: dict, player) -> str:
     query = parameters.get("query", "").strip()
     if not query:
         return "Please tell me what you'd like to watch, sir."
@@ -289,7 +299,7 @@ def _handle_summarize(parameters: dict, player, speak) -> str:
     if not _TRANSCRIPT_OK:
         return "youtube-transcript-api is not installed. Run: pip install youtube-transcript-api"
 
-    url = _ask_for_url("Please paste the YouTube video URL:")
+    url = parameters.get('url') or _ask_for_url("Please paste the YouTube video URL:")
     if not url:
         return "No URL provided, sir. Summary cancelled."
     if not _is_valid_youtube_url(url):
@@ -397,10 +407,13 @@ def youtube_video(
 ) -> str:
     params = parameters or {}
     action = params.get("action", "play").lower().strip()
+    if action in ('play', 'search', 'search_only', 'recommend'):
+        from actions.youtube_browser import youtube_browser
+        return youtube_browser({**params, 'action': 'play' if action == 'search' else action}, player=player)
 
     if player:
         player.write_log(f"[YouTube] Action: {action}")
-    print(f"[YouTube] ▶️  Action: {action}  Params: {params}")
+    print(f"[YouTube] Action: {action}")
 
     handler = _ACTION_MAP.get(action)
     if handler is None:

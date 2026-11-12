@@ -4,6 +4,7 @@
 import importlib
 import logging
 import threading
+from core.tool_invocation import invoke_tool
 from typing import Dict, Any, Callable
 
 from core.tool_registry import Tool, default_tool_registry
@@ -25,33 +26,11 @@ def _lazy_tool(module_path: str, func_name: str) -> Callable[..., Any]:
             _LOADED_FUNCS[key] = getattr(mod, func_name)
         fn = _LOADED_FUNCS[key]
 
-        # Handle 'parameters' kwarg passed from Tool.execute or dictionary arg
-        if len(args) == 0 and "parameters" in kwargs and len(kwargs) == 1:
-            p = kwargs["parameters"]
-            if isinstance(p, dict):
-                try:
-                    return fn(**p)
-                except (TypeError, AttributeError):
-                    try:
-                        return fn(p)
-                    except (TypeError, AttributeError):
-                        return fn(parameters=p)
-            return fn(parameters=p)
-
-        try:
-            return fn(*args, **kwargs)
-        except (TypeError, AttributeError):
-            if len(args) == 1 and isinstance(args[0], dict) and not kwargs:
-                try:
-                    return fn(**args[0])
-                except (TypeError, AttributeError):
-                    return fn(parameters=args[0])
-            elif not args and kwargs:
-                try:
-                    return fn(parameters=kwargs)
-                except (TypeError, AttributeError):
-                    return fn(kwargs)
-            raise
+        if not args and "parameters" in kwargs:
+            return invoke_tool(fn, kwargs.pop("parameters"), **kwargs)
+        if len(args) == 1 and isinstance(args[0], dict):
+            return invoke_tool(fn, args[0], **kwargs)
+        return fn(*args, **kwargs)
 
     _proxy.__name__ = func_name
     _proxy.__doc__ = f"Lazy proxy for {module_path}.{func_name}"
@@ -92,11 +71,23 @@ def initialize_all_tools() -> None:
             "properties": {
                 "query": {"type": "STRING", "description": "Search query string"},
                 "num_results": {"type": "INTEGER", "description": "Number of results to retrieve (1-10)"},
-                "fetch_page": {"type": "BOOLEAN", "description": "Set to true to extract top webpage text content"}
+                "fetch_page": {"type": "BOOLEAN", "description": "Set to true to extract top webpage text content"},
+                "browser": {"type": "STRING", "description": "Optional browser preference scope: chrome, edge, firefox, or brave"},
+                "search_engine": {"type": "STRING", "description": "Optional engine or custom search engine identifier"},
+                "action": {"type": "STRING", "description": "Optional: search, show_search_preferences, set_search_preference, reset_browser_search, add_search_engine, update_search_engine, remove_search_engine"},
+                "scope": {"type": "STRING", "description": "global or browser, for preference changes"},
+                "search_url": {"type": "STRING", "description": "HTTPS template URL containing exactly one {query} placeholder"},
+                "display_name": {"type": "STRING", "description": "Display name for a custom search engine"},
+                "enabled": {"type": "BOOLEAN", "description": "Enable or disable a custom search engine"},
+                "browsers": {"type": "ARRAY", "items": {"type": "STRING"}, "description": "Optional browser restrictions for a custom engine"},
+                "preferred_provider": {"type": "STRING", "description": "Optional preferred provider: any, google, serper, brave, duckduckgo, or bing"},
+                "enabled_providers": {"type": "ARRAY", "items": {"type": "STRING"}, "description": "Optional browser-specific provider allowlist"},
+                "fallback": {"type": "BOOLEAN", "description": "Enable provider and browser fallback"},
+                "result_limit": {"type": "INTEGER", "description": "Default result count from 1 to 10"}
             },
             "required": ["query"]
         },
-        execute_func=_lazy_tool("actions.web_search", "web_search"),
+        execute_func=_lazy_tool("actions.web_search", "web_search_tool"),
         risk_level=RiskLevel.LOW,
     ))
 
@@ -213,6 +204,27 @@ def initialize_all_tools() -> None:
 
     # 10. File Processor
     default_tool_registry.register(Tool(
+        name="reminder",
+        description="Sets a spoken Windows reminder from an English/Hinglish query or an exact date and time.",
+        parameters={"type": "OBJECT", "properties": {
+            "query": {"type": "STRING"}, "date": {"type": "STRING"},
+            "time": {"type": "STRING"}, "message": {"type": "STRING"}
+        }, "required": []},
+        execute_func=_lazy_tool("actions.reminder", "reminder"),
+        risk_level=RiskLevel.LOW,
+    ))
+    default_tool_registry.register(Tool(
+        name="social_chat",
+        description="Sends or reads real Discord/Instagram messages in a signed-in controlled browser session.",
+        parameters={"type": "OBJECT", "properties": {
+            "query": {"type": "STRING"}, "platform": {"type": "STRING"},
+            "action": {"type": "STRING"}, "recipient": {"type": "STRING"},
+            "message_text": {"type": "STRING"}
+        }, "required": ["platform", "action"]},
+        execute_func=_lazy_tool("actions.social_chat", "social_chat"),
+        risk_level=RiskLevel.MEDIUM,
+    ))
+    default_tool_registry.register(Tool(
         name="file_processor",
         description="Processes dropped/uploaded files (PDFs, images, CSVs, audio).",
         parameters={
@@ -226,11 +238,23 @@ def initialize_all_tools() -> None:
 
     # 11. YouTube Control
     default_tool_registry.register(Tool(
+        name='study_document',
+        description='Read attached PDF/PPTX topics with page/slide evidence; explain, plan, find study resources.',
+        parameters={'type': 'OBJECT', 'properties': {'file_path': {'type': 'STRING'}, 'query': {'type': 'STRING'}, 'action': {'type': 'STRING'}}},
+        execute_func=_lazy_tool('core.study_documents', 'study_document'), risk_level=RiskLevel.LOW,
+    ))
+    default_tool_registry.register(Tool(
+        name='contact_directory',
+        description='JARVIS local contact status, Google readonly OAuth sync or Google Contacts CSV import.',
+        parameters={'type': 'OBJECT', 'properties': {'action': {'type': 'STRING'}, 'file_path': {'type': 'STRING'}}},
+        execute_func=_lazy_tool('actions.contact_directory', 'contact_directory'), risk_level=RiskLevel.LOW,
+    ))
+    default_tool_registry.register(Tool(
         name="youtube_video",
         description="Controls YouTube playback and search.",
         parameters={
             "type": "OBJECT",
-            "properties": {"action": {"type": "STRING"}},
+            "properties": {"action": {"type": "STRING"}, "query": {"type": "STRING"}, "url": {"type": "STRING"}},
             "required": []
         },
         execute_func=_lazy_tool("actions.youtube_video", "youtube_video"),
@@ -302,7 +326,8 @@ def initialize_all_tools() -> None:
                 "recipient": {"type": "STRING"},
                 "receiver": {"type": "STRING"},
                 "message_text": {"type": "STRING"},
-                "call_type": {"type": "STRING"}
+                "call_type": {"type": "STRING"},
+                "mode": {"type": "STRING"}
             },
             "required": []
         },
@@ -350,10 +375,10 @@ def initialize_all_tools() -> None:
             q = p.get("query") or p.get("text_prompt") or ""
             from actions.whatsapp_automation import parse_whatsapp_command
             parsed = parse_whatsapp_command(q)
-            contact = contact or parsed.get("contact", "Rahul")
-            message = message or parsed.get("message", "Hello")
+            contact = contact or parsed.get("contact", "")
+            message = message or parsed.get("message", "")
         from actions.whatsapp import whatsapp_send_message_tool
-        return whatsapp_send_message_tool(contact=contact, message=message)
+        return whatsapp_send_message_tool(contact=contact, message=message, force_send=p.get("force_send") is True)
 
     def _exec_whatsapp_voice(parameters=None, **kw):
         p = parameters if isinstance(parameters, dict) else (kw or {})
@@ -362,9 +387,9 @@ def initialize_all_tools() -> None:
             q = p.get("query") or p.get("text_prompt") or ""
             from actions.whatsapp_automation import parse_whatsapp_command
             parsed = parse_whatsapp_command(q)
-            contact = parsed.get("contact", "Rahul")
+            contact = parsed.get("contact", "")
         from actions.whatsapp import whatsapp_voice_call_tool
-        return whatsapp_voice_call_tool(contact=contact)
+        return whatsapp_voice_call_tool(contact=contact, confirm_call=p.get("confirm_call") is True)
 
     def _exec_whatsapp_video(parameters=None, **kw):
         p = parameters if isinstance(parameters, dict) else (kw or {})
@@ -373,16 +398,16 @@ def initialize_all_tools() -> None:
             q = p.get("query") or p.get("text_prompt") or ""
             from actions.whatsapp_automation import parse_whatsapp_command
             parsed = parse_whatsapp_command(q)
-            contact = parsed.get("contact", "Rahul")
+            contact = parsed.get("contact", "")
         from actions.whatsapp import whatsapp_video_call_tool
-        return whatsapp_video_call_tool(contact=contact)
+        return whatsapp_video_call_tool(contact=contact, confirm_call=p.get("confirm_call") is True)
 
     default_tool_registry.register(Tool(
         name="whatsapp_send_message",
         description="Sends a verified text message to a specific WhatsApp contact.",
         parameters={
             "type": "OBJECT",
-            "properties": {"contact": {"type": "STRING"}, "message": {"type": "STRING"}},
+            "properties": {"contact": {"type": "STRING"}, "message": {"type": "STRING"}, "force_send": {"type": "BOOLEAN", "description": "True only after the user authorizes this exact message"}},
             "required": ["contact", "message"]
         },
         execute_func=_exec_whatsapp_send,
@@ -394,7 +419,7 @@ def initialize_all_tools() -> None:
         description="Replies to a contact's latest WhatsApp message.",
         parameters={
             "type": "OBJECT",
-            "properties": {"contact": {"type": "STRING"}, "message": {"type": "STRING"}},
+            "properties": {"contact": {"type": "STRING"}, "message": {"type": "STRING"}, "force_send": {"type": "BOOLEAN", "description": "True only after the user authorizes this exact reply"}},
             "required": ["contact", "message"]
         },
         execute_func=_lazy_tool("actions.whatsapp", "whatsapp_reply_tool"),
@@ -403,10 +428,10 @@ def initialize_all_tools() -> None:
 
     default_tool_registry.register(Tool(
         name="whatsapp_voice_call",
-        description="Initiates a WhatsApp Web voice call with contact and DOM state verification.",
+        description="Initiates a WhatsApp voice call with exact contact and call-state verification.",
         parameters={
             "type": "OBJECT",
-            "properties": {"contact": {"type": "STRING"}},
+            "properties": {"contact": {"type": "STRING"}, "confirm_call": {"type": "BOOLEAN", "description": "True only after user authorization; the security gate still applies"}},
             "required": ["contact"]
         },
         execute_func=_exec_whatsapp_voice,
@@ -415,10 +440,10 @@ def initialize_all_tools() -> None:
 
     default_tool_registry.register(Tool(
         name="whatsapp_video_call",
-        description="Initiates a WhatsApp Web video call with contact and DOM state verification.",
+        description="Initiates a WhatsApp video call when a verified call control is available.",
         parameters={
             "type": "OBJECT",
-            "properties": {"contact": {"type": "STRING"}},
+            "properties": {"contact": {"type": "STRING"}, "confirm_call": {"type": "BOOLEAN", "description": "True only after user authorization; the security gate still applies"}},
             "required": ["contact"]
         },
         execute_func=_exec_whatsapp_video,
@@ -511,40 +536,22 @@ def initialize_all_tools() -> None:
     ))
 
     # 20. Camera Controller
-    def camera_control(parameters: dict | None = None, player=None, **kwargs) -> str:
-        params = parameters or kwargs or {}
-        action = str(params.get("action", "")).lower().strip()
-        from core.context_engine import default_context_engine
-        if action in ["on", "enable", "start", "turn_on"]:
-            default_context_engine.camera_active = True
-            if player and hasattr(player, "set_camera_active"):
-                player.set_camera_active(True)
-            return "Camera activated, sir. CAMERA ACTIVE indicator is displayed on HUD."
-        elif action in ["off", "disable", "stop", "turn_off"]:
-            default_context_engine.camera_active = False
-            if player and hasattr(player, "set_camera_active"):
-                player.set_camera_active(False)
-            return "Camera deactivated, sir."
-        else:
-            if not default_context_engine.camera_active:
-                default_context_engine.camera_active = True
-                if player and hasattr(player, "set_camera_active"):
-                    player.set_camera_active(True)
-            from actions.screen_processor import screen_process
-            text_query = params.get("query") or params.get("text") or "What do you see?"
-            screen_process({"angle": "camera", "text": text_query}, player=player)
-            return "Analyzing camera feed, sir."
-
     default_tool_registry.register(Tool(
         name="camera_control",
-        description="Controls camera activation state and webcam visual analysis.",
+        description="Checks camera hardware, controls on-demand access and returns real webcam observations. No continuous recording or emotional inference.",
         parameters={
             "type": "OBJECT",
-            "properties": {"action": {"type": "STRING", "description": "on | off | analyze"}, "query": {"type": "STRING"}},
+            "properties": {"action": {"type": "STRING", "description": "on | off | status | analyze"}, "query": {"type": "STRING"}},
             "required": []
         },
-        execute_func=camera_control,
+        execute_func=_lazy_tool("actions.camera_control", "camera_control"),
         risk_level=RiskLevel.LOW,
+    ))
+
+    default_tool_registry.register(Tool(
+        name="assistant_access", description="Read actual registered capabilities and current access status; does not grant OS/account rights.",
+        parameters={"type": "OBJECT", "properties": {}, "required": []},
+        execute_func=_lazy_tool("actions.assistant_access", "assistant_access"), risk_level=RiskLevel.LOW,
     ))
 
     # 21. Discord Discrete Tools & Mic Control
@@ -944,6 +951,112 @@ def initialize_all_tools() -> None:
         parameters={"type": "OBJECT", "properties": {}, "required": []},
         execute_func=_exec_unified_connection_status,
         risk_level=RiskLevel.LOW
+    ))
+
+    # 14. Visual Computer Agent Tool
+    default_tool_registry.register(Tool(
+        name="visual_agent",
+        description="Visual Computer Agent for multimodal desktop observation, UI interaction, clicking, typing, and verification.",
+        parameters={
+            "type": "OBJECT",
+            "properties": {
+                "instruction": {"type": "STRING", "description": "Natural language visual task or inspection instruction"},
+                "action": {"type": "STRING", "description": "Action type: click | double_click | right_click | type | hotkey | press | scroll | focus"},
+                "target": {"type": "STRING", "description": "Target UI element name or description to interact with"},
+                "text": {"type": "STRING", "description": "Text to type or key name to press"}
+            },
+            "required": []
+        },
+        execute_func=_lazy_tool("actions.visual_agent", "visual_agent"),
+        risk_level=RiskLevel.MEDIUM
+    ))
+
+    # 15. Workflow Engine Tool
+    default_tool_registry.register(Tool(
+        name="workflow_engine",
+        description="Manages reusable multi-step workflows. Actions: create, run, list, delete, cancel.",
+        parameters={
+            "type": "OBJECT",
+            "properties": {
+                "action": {"type": "STRING", "description": "Action: create | run | list | delete | cancel"},
+                "name": {"type": "STRING", "description": "Workflow name"},
+                "description": {"type": "STRING", "description": "Workflow description"},
+                "steps": {"type": "ARRAY", "description": "List of step dicts with tool, description, parameters"},
+                "tags": {"type": "ARRAY", "description": "Tags for categorization"}
+            },
+            "required": []
+        },
+        execute_func=_lazy_tool("agent.workflow_engine", "workflow_engine"),
+        risk_level=RiskLevel.MEDIUM
+    ))
+
+    # 16. Macro Executor Tool
+    default_tool_registry.register(Tool(
+        name="macro_executor",
+        description="Runs pre-built or user-defined macros for common desktop automation. Actions: run, create, list, delete.",
+        parameters={
+            "type": "OBJECT",
+            "properties": {
+                "action": {"type": "STRING", "description": "Action: run | create | list | delete"},
+                "name": {"type": "STRING", "description": "Macro name (e.g. study_mode, coding_setup, morning_routine)"},
+                "description": {"type": "STRING", "description": "Macro description"},
+                "steps": {"type": "ARRAY", "description": "List of step dicts with tool, params, description"},
+                "tags": {"type": "ARRAY", "description": "Tags for categorization"}
+            },
+            "required": []
+        },
+        execute_func=_lazy_tool("agent.macros", "macro_executor"),
+        risk_level=RiskLevel.MEDIUM
+    ))
+
+    # 17. Notes Manager Tool
+    default_tool_registry.register(Tool(
+        name="notes_manager",
+        description="Create, search, list, update, delete notes. Categories: general, project, study, personal.",
+        parameters={
+            "type": "OBJECT",
+            "properties": {
+                "action": {"type": "STRING", "description": "Action: create | search | list | get | update | delete | recent"},
+                "title": {"type": "STRING", "description": "Note title"},
+                "content": {"type": "STRING", "description": "Note content / text"},
+                "category": {"type": "STRING", "description": "Category: general | project | study | personal"},
+                "query": {"type": "STRING", "description": "Search query"},
+                "note_id": {"type": "STRING", "description": "Note ID for get/update/delete"},
+                "tags": {"type": "ARRAY", "description": "Tags for the note"},
+            },
+            "required": []
+        },
+        execute_func=_lazy_tool("memory.notes_manager", "notes_manager_tool"),
+        risk_level=RiskLevel.LOW
+    ))
+
+    # 18. Personal Profile Tool
+    default_tool_registry.register(Tool(
+        name="personal_profile",
+        description="Manages user personal profile: name, preferences, hobbies, coding style, routines. Actions: set, get, summary, delete, clear.",
+        parameters={
+            "type": "OBJECT",
+            "properties": {
+                "action": {"type": "STRING", "description": "Action: set | get | summary | delete | clear"},
+                "key": {"type": "STRING", "description": "Profile field name (e.g. name, nickname, hobbies, coding_preferences)"},
+                "value": {"type": "STRING", "description": "Value to set for the field"},
+            },
+            "required": []
+        },
+        execute_func=_lazy_tool("memory.personal_profile", "personal_profile_tool"),
+        risk_level=RiskLevel.LOW
+    ))
+
+    default_tool_registry.register(Tool(
+        name="model_3d",
+        description="JARVIS 3D studio: prepare a full-body prompt and live reference search for website generation, open the 360-degree viewer, or import a downloaded self-contained GLB. Prepare does NOT generate a model. Animation requires clips in the imported GLB.",
+        parameters={"type": "OBJECT", "properties": {
+            "action": {"type": "STRING", "description": "prepare | open | import"},
+            "subject": {"type": "STRING", "description": "Exact object/person for model preparation"},
+            "file_path": {"type": "STRING", "description": "User-specified local .glb path to import"},
+        }, "required": ["action"]},
+        execute_func=_lazy_tool("actions.model_3d", "model_3d"),
+        risk_level=RiskLevel.MEDIUM,
     ))
 
     logger.info(f"Initialized {len(default_tool_registry.list_tools())} tools into ToolRegistry.")

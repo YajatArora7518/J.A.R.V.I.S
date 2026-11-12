@@ -17,7 +17,7 @@ class PermissionManager:
     Loads and persists permissions from config/awareness.json safely.
     """
     def __init__(self):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._permissions: Dict[str, bool] = {
             "CAMERA_ACCESS": False,
             "SCREEN_ACCESS": False,
@@ -51,10 +51,13 @@ class PermissionManager:
             except Exception:
                 pass
 
-    def save_config(self) -> None:
+    def save_config(self) -> bool:
         try:
             with self._lock:
-                cfg = {
+                cfg = json.loads(CONFIG_FILE.read_text(encoding='utf-8')) if CONFIG_FILE.exists() else {}
+                if not isinstance(cfg, dict):
+                    return False
+                cfg.update({
                     "camera": self._permissions.get("CAMERA_ACCESS", False),
                     "screen": self._permissions.get("SCREEN_ACCESS", False),
                     "whatsapp_read": self._permissions.get("WHATSAPP_READ", False),
@@ -63,24 +66,32 @@ class PermissionManager:
                     "instagram_read": self._permissions.get("INSTAGRAM_READ", False),
                     "proactive_mode": self._permissions.get("PROACTIVE_MODE", False),
                     "companion_mode": self._permissions.get("COMPANION_MODE", False),
-                    "sleep_reminder": True,
-                    "sleep_time": "01:00",
-                    "global_cooldown_seconds": 300
-                }
-            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(cfg, f, indent=2)
+                })
+                # Preserve the user's other awareness preferences.
+                cfg.setdefault('sleep_reminder', True)
+                cfg.setdefault('sleep_time', '01:00')
+                cfg.setdefault('global_cooldown_seconds', 300)
+                temporary = CONFIG_FILE.with_suffix('.tmp')
+                temporary.write_text(json.dumps(cfg, indent=2) + '\n', encoding='utf-8')
+                temporary.replace(CONFIG_FILE)
+                return True
         except Exception:
-            pass
+            return False
 
     def is_granted(self, permission_name: str) -> bool:
         with self._lock:
             return self._permissions.get(permission_name, False)
 
-    def set_permission(self, permission_name: str, granted: bool) -> None:
+    def set_permission(self, permission_name: str, granted: bool) -> bool:
         with self._lock:
-            if permission_name in self._permissions:
-                self._permissions[permission_name] = bool(granted)
-        self.save_config()
+            if permission_name not in self._permissions:
+                return False
+            previous = self._permissions[permission_name]
+            self._permissions[permission_name] = bool(granted)
+            if self.save_config():
+                return True
+            self._permissions[permission_name] = previous
+            return False
 
     def get_all_permissions(self) -> Dict[str, bool]:
         with self._lock:

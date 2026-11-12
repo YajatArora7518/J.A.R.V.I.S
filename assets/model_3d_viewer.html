@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JARVIS · 3D Studio</title>
+<style>
+:root{color-scheme:dark;font-family:Segoe UI,system-ui,sans-serif;color:#e2f2fa;background:#060d15}
+*{box-sizing:border-box}body{margin:0}header{height:66px;border-bottom:1px solid #1b3944;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:#08151e}
+h1{font-size:17px;letter-spacing:3px;color:#57e0e8;margin:0}header span{font-size:12px;color:#9db8c4}main{display:grid;grid-template-columns:300px minmax(0,1fr);height:calc(100vh - 66px)}aside{padding:20px;overflow:auto;border-right:1px solid #1b3944;background:#0a1420}h2{font-size:12px;letter-spacing:2px;color:#57e0e8;margin:8px 0 14px}p,.hint{font-size:12px;line-height:1.6;color:#9db8c4}button,select,.file{background:#122635;color:#e2f2fa;border:1px solid #315260;border-radius:8px;padding:10px;font:inherit;font-size:12px;cursor:pointer}button:hover,.file:hover{border-color:#57e0e8;background:#183b48}button:disabled{opacity:.4;cursor:default}.primary{background:#57e0e8;color:#06111b;border:0;font-weight:600}.row{display:flex;gap:8px;margin:10px 0}.row>*{flex:1}.file{display:block;text-align:center;margin:10px 0}textarea{width:100%;height:145px;background:#06111b;border:1px solid #315260;border-radius:8px;color:#c3dce7;padding:10px;resize:vertical;font:12px/1.6 inherit}#subject{font-size:20px;letter-spacing:0;color:#fff;overflow-wrap:anywhere}#references{padding:0;list-style:none}#references li{margin:12px 0}a{font-size:12px;color:#78cedf;overflow-wrap:anywhere}select{width:100%}.stage{position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 45%,#162b3a,#060d15 70%)}#canvas{width:100%;height:100%;display:block;touch-action:none}.badge{position:absolute;top:22px;left:24px;background:#10232be8;border:1px solid #315260;border-radius:20px;padding:9px 15px;font-size:11px;letter-spacing:1px;color:#70e4d7}#empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;pointer-events:none}#empty div{max-width:370px;padding:30px}#empty strong{font-size:23px;display:block;color:#e2f2fa}#empty p{font-size:14px}#tools{position:absolute;bottom:22px;left:22px;right:22px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}#error{color:#ffaf9c;white-space:pre-wrap}#stats{position:absolute;right:24px;top:28px;font-size:11px;color:#9db8c4}.divider{height:1px;background:#1b3944;margin:20px 0}#move{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}#move button{padding:9px 2px}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+@media(max-width:800px){main{grid-template-columns:240px 1fr}aside{padding:12px}header{padding:0 14px}header span{display:none}#stats{top:65px;left:24px}#tools{bottom:12px}}
+</style>
+<style>body{height:100vh;overflow:hidden}main{grid-template-rows:minmax(0,1fr)}aside,.stage{min-height:0;min-width:0}</style>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script>
+</head><body>
+<header><h1>J.A.R.V.I.S / 3D STUDIO</h1><span>Drag · 360° orbit &nbsp; / &nbsp; Scroll · zoom &nbsp; / &nbsp; Right drag · pan</span></header>
+<main><aside>
+<h2>REQUESTED SUBJECT</h2><h2 id="subject">Create something real.</h2>
+<p>Website se model banao, phir uski GLB yahan lao. Full-body reference se shuru karo; final likeness ko preview mein check karna.</p>
+<textarea id="prompt" aria-label="Generation prompt" readonly placeholder="JARVIS ko bolo: Iron Man ka 3D model banao"></textarea>
+<div class="row"><button id="copy">Copy prompt</button><button id="references-btn">Find photos</button></div>
+<button class="primary" id="tripo" style="width:100%">Try free on Tripo ↗</button>
+<p>Free route: H2.5 choose karo aur GLB export pehle check karo. Limits badal sakti hain; upgrade maange to ruk jao. <a href="https://www.tripo3d.ai/pricing" target="_blank" rel="noopener noreferrer">Check current free limits ↗</a></p>
+<button id="meshy" style="width:100%">Open existing Meshy models ↗</button>
+<p id="copy-status" aria-live="polite">Meshy export is account par paid tha. Website kholna generation nahi hai; downloaded GLB import hone par model dikhega.</p>
+<ul id="references"></ul><div class="divider"></div>
+<h2>MODEL LIBRARY</h2><label class="file" for="file">＋ Import downloaded GLB</label><input class="sr-only" id="file" type="file" accept=".glb">
+<select id="library" aria-label="Saved models"><option value="">No model imported</option></select>
+<p id="error" role="alert"></p><div class="divider"></div>
+<h2>MOVE MODEL</h2><div id="move">
+<button data-axis="x" data-step="-1" disabled>← Left</button><button data-axis="y" data-step="1" disabled>↑ Up</button><button data-axis="x" data-step="1" disabled>Right →</button>
+<button data-axis="z" data-step="1" disabled>Forward</button><button data-axis="y" data-step="-1" disabled>↓ Down</button><button data-axis="z" data-step="-1" disabled>Back</button></div>
+<div class="row"><button id="reset" disabled>Reset view</button><button id="download" disabled>Save GLB</button></div>
+<h2>ANIMATION</h2><select id="animation" aria-label="Model animation" disabled><option>No animation in this file</option></select>
+<div class="row"><button id="play" disabled>Play animation</button></div>
+<p>Static model ko move/rotate kar sakte ho. Walking ya batting ke liye GLB mein rig aur animation clips honi chahiye.</p>
+</aside><section class="stage" aria-label="Interactive 3D model">
+<canvas id="canvas" aria-label="Drag to rotate the 3D model"></canvas><span class="badge" id="status" role="status">READY TO IMPORT</span><span id="model-label" style="position:absolute;left:24px;top:102px;right:24px;font-size:13px;color:#e2f2fa;overflow-wrap:anywhere"></span><span id="stats"></span>
+<div id="empty"><div><strong>Your next creation,<br>in every dimension.</strong><p>Apni actual 3D GLB import karo.<br>Yahan koi flat photo ko 3D nahi bola jayega.</p></div></div>
+<div id="tools"><button id="rotate" disabled>Auto rotate</button><button id="real" disabled>Real materials</button><button id="holo" disabled>Holographic</button><button id="wire" disabled>Wireframe</button></div>
+</section></main>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+const token='__STUDIO_TOKEN__', $=id=>document.getElementById(id);
+const status=text=>$('status').textContent=text, error=text=>$('error').textContent=text;
+async function api(path,data,extra={}){
+  const response=await fetch('/api/'+path,{method:data===undefined?'GET':'POST',headers:{'X-Studio-Token':token,...extra},body:data===undefined?undefined:data instanceof ArrayBuffer?data:JSON.stringify(data)});
+  const result=await response.json(); if(!response.ok)throw new Error(result.error||'Request failed');return result;
+}
+const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(40,1,.01,1000), canvas=$('canvas');
+let renderer;
+try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});}catch(e){status('WEBGL UNAVAILABLE');error('3D rendering start nahi hua. Graphics acceleration check karo.');throw e;}
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
+const room=new RoomEnvironment(),pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(room,.04).texture;room.dispose();pmrem.dispose();
+const controls=new OrbitControls(camera,canvas);controls.enableDamping=true;controls.dampingFactor=.07;controls.autoRotateSpeed=.9;controls.maxDistance=40;controls.minDistance=.3;
+camera.position.set(3,2,5);controls.target.set(0,1,0);
+scene.add(new THREE.HemisphereLight(0xe1f6ff,0x344357,2.2));
+for(const [color,intensity,x,y,z] of [[0xffffff,3.5,4,7,5],[0x6ac8ed,2,-4,3,-4],[0xffd8ae,1.3,-3,2,4]]){const light=new THREE.DirectionalLight(color,intensity);light.position.set(x,y,z);scene.add(light);}
+const grid=new THREE.GridHelper(14,28,0x247989,0x14313d);grid.material.transparent=true;grid.material.opacity=.35;scene.add(grid);
+const root=new THREE.Group();scene.add(root);
+let model=null,mixer=null,action=null,activeId='',loadingId='',failedId='',sequence=0,clips=[],originals=new Map(),stateSignature='';
+const holoMaterial=new THREE.MeshBasicMaterial({color:0x48e8ef,transparent:true,opacity:.48,side:THREE.DoubleSide,depthWrite:false});
+const clock=new THREE.Clock();let playing=false,needsRender=true;
+controls.addEventListener('change',()=>{needsRender=true;});
+function disposeAsset(asset,savedMaterials=new Map()){
+  const geometries=new Set(),materials=new Set(),textures=new Set();
+  asset.traverse(o=>{if(o.geometry)geometries.add(o.geometry);const saved=savedMaterials.get(o)||o.material;for(const mat of saved?(Array.isArray(saved)?saved:[saved]):[]){if(mat===holoMaterial)continue;materials.add(mat);for(const value of Object.values(mat))if(value?.isTexture)textures.add(value);}});
+  for(const g of geometries)g.dispose();for(const t of textures)t.dispose();for(const m of materials)m.dispose();
+}
+function disposeModel(){
+  if(mixer){mixer.stopAllAction();mixer.uncacheRoot(model);}mixer=null;action=null;playing=false;
+  if(model){disposeAsset(model,originals);root.remove(model);}
+  model=null;originals.clear();needsRender=true;
+}
+function materialMode(mode){if(!model)return;model.traverse(o=>{if(!o.isMesh)return;const saved=originals.get(o);o.material=mode==='holo'?holoMaterial:saved;if(mode!=='holo')for(const m of Array.isArray(saved)?saved:[saved])m.wireframe=mode==='wire';});needsRender=true;}
+function reset(){controls.autoRotate=false;$('rotate').textContent='Auto rotate';root.position.set(0,0,0);root.rotation.set(0,0,0);controls.target.set(0,1,0);camera.position.set(3,2,5);controls.update();needsRender=true;}
+function readyControls(enabled){for(const element of document.querySelectorAll('[data-axis],#reset,#download,#rotate,#real,#holo,#wire'))element.disabled=!enabled;}
+async function loadModel(id){
+  if(!id||id===activeId||id===loadingId||id===failedId)return;loadingId=id;let parsedAsset=null;const mine=++sequence;status('WORKING · LOADING MODEL');error('');readyControls(false);
+  try{
+    const response=await fetch('/models/'+id+'.glb');if(!response.ok)throw new Error('Saved model missing');
+    const data=await response.arrayBuffer();
+    const manager=new THREE.LoadingManager();manager.setURLModifier(url=>{if(!url.startsWith('blob:')&&!url.startsWith('data:'))throw new Error('External model resources blocked');return url;});
+    const gltf=await new GLTFLoader(manager).parseAsync(data,'');parsedAsset=gltf.scene;
+    if(mine!==sequence){disposeAsset(gltf.scene);return;}
+    const box=new THREE.Box3().setFromObject(gltf.scene),size=box.getSize(new THREE.Vector3());
+    const extent=Math.max(size.x,size.y,size.z);
+    if(!Number.isFinite(extent)||extent<=0)throw new Error('Model geometry empty/invalid');
+    disposeModel();model=gltf.scene;const scale=2/extent;model.scale.multiplyScalar(scale);
+    const fitted=new THREE.Box3().setFromObject(model),center=fitted.getCenter(new THREE.Vector3());
+    model.position.sub(new THREE.Vector3(center.x,fitted.min.y,center.z));root.add(model);
+    let meshes=0,triangles=0;model.traverse(o=>{if(o.isMesh){meshes++;originals.set(o,o.material);triangles+=(o.geometry.index?.count||o.geometry.attributes.position?.count||0)/3;}});
+    if(!meshes)throw new Error('No renderable mesh');
+    clips=gltf.animations;mixer=clips.length?new THREE.AnimationMixer(model):null;
+    $('animation').replaceChildren();for(const [i,clip]of clips.entries()){const option=document.createElement('option');option.value=i;option.textContent=clip.name||'Animation '+(i+1);$('animation').append(option);}
+    if(!clips.length){const option=document.createElement('option');option.textContent='No animation in this file';$('animation').append(option);}
+    $('animation').disabled=!clips.length;$('play').disabled=!clips.length;$('play').textContent='Play animation';
+    activeId=id;loadingId='';reset();materialMode('real');readyControls(true);$('empty').style.display='none';
+    renderer.render(scene,camera);
+    $('stats').textContent=`${meshes} meshes · ${Math.round(triangles).toLocaleString()} triangles · ${clips.length} animations`;
+    const acknowledgement=await api('viewed',{id});
+    if(mine!==sequence)return;
+    if(!acknowledgement.verified)throw new Error('Model selection changed; choose this model again from the library.');
+    status('READY · REAL 3D MODEL');
+  }catch(e){if(parsedAsset&&parsedAsset!==model)disposeAsset(parsedAsset);if(mine!==sequence)return;disposeModel();activeId='';failedId=id;loadingId='';readyControls(false);$('animation').disabled=true;$('play').disabled=true;$('stats').textContent='';$('empty').style.display='flex';status('MODEL LOAD FAILED');error(e.message);await api('error',{id,error:e.message}).catch(()=>{});}
+}
+async function refresh(){
+  const state=await api('state');const signature=JSON.stringify([state.subject,state.prompt,state.references,state.models,state.active]);
+  if(state.active===activeId&&model&&state.status==='IMPORTED'){renderer.render(scene,camera);await api('viewed',{id:activeId});}
+  if(signature===stateSignature)return;stateSignature=signature;
+  $('subject').textContent=state.subject||'Create something real.';$('prompt').value=state.prompt;
+  const selectedModel=state.models.find(m=>m.id===state.active);$('model-label').textContent=selectedModel?'GLB · '+selectedModel.name:'';
+  $('references').replaceChildren();for(const reference of state.references){let parsed;try{parsed=new URL(reference?.url);}catch{continue;}if(parsed.protocol!=='https:'||parsed.username||parsed.password)continue;const li=document.createElement('li'),a=document.createElement('a');a.href=parsed.href;a.target='_blank';a.rel='noopener noreferrer';a.textContent=reference.title||parsed.hostname;li.append(a);$('references').append(li);}
+  const library=$('library');library.replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent=state.models.length?'Choose a saved model':'No model imported';library.append(placeholder);for(const m of state.models){const option=document.createElement('option');option.value=m.id;option.textContent=m.name;library.append(option);}
+  library.value=state.active||'';if(state.active)await loadModel(state.active);
+  else{++sequence;disposeModel();reset();activeId='';loadingId='';failedId='';readyControls(false);$('animation').disabled=true;$('play').disabled=true;$('empty').style.display='flex';$('stats').textContent='';status(state.subject?'AWAITING WEBSITE GLB':'READY TO IMPORT');}
+}
+$('file').addEventListener('change',async()=>{const file=$('file').files[0];if(!file)return;status('WORKING · IMPORTING');error('');try{if(file.size>100*1024*1024)throw new Error('Maximum GLB size: 100 MB');await api('import',await file.arrayBuffer(),{'X-File-Name':encodeURIComponent(file.name)});await refresh();}catch(e){error(e.message);status('IMPORT FAILED');}finally{$('file').value='';}});
+$('library').onchange=async()=>{if(!$('library').value)return;try{failedId='';stateSignature='';await api('select',{id:$('library').value});await refresh();}catch(e){error(e.message);}};
+$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('prompt').value);$('copy-status').textContent='Prompt copied. Free generator mein paste karo.';}catch(e){$('prompt').focus();$('prompt').select();$('copy-status').textContent='Prompt selected — Ctrl+C se copy karo.';}};
+for(const [id,site]of [['tripo','tripo'],['meshy','meshy'],['references-btn','references']])$(id).onclick=async()=>{const button=$(id);button.disabled=true;try{const result=await api('open-site',{site});$('copy-status').textContent=result.success?'Website Chrome mein khul rahi hai.':'Website open nahi hui; dobara try karo.';}catch(e){error(e.message);}finally{button.disabled=false;}};
+$('reset').onclick=reset;$('rotate').onclick=()=>{controls.autoRotate=!controls.autoRotate;$('rotate').textContent=controls.autoRotate?'Stop rotation':'Auto rotate';};
+for(const mode of ['real','holo','wire'])$(mode).onclick=()=>materialMode(mode);
+for(const button of document.querySelectorAll('[data-axis]'))button.onclick=()=>{if(model){root.position[button.dataset.axis]+=.2*Number(button.dataset.step);needsRender=true;}};
+$('download').onclick=()=>{if(!activeId)return;const link=document.createElement('a');link.href='/models/'+activeId+'.glb';link.download=$('library').selectedOptions[0]?.textContent||'model.glb';link.click();};
+function playClip(){if(!mixer)return;mixer.stopAllAction();action=mixer.clipAction(clips[Number($('animation').value)]);action.play();playing=true;$('play').textContent='Pause animation';}
+$('animation').onchange=playClip;$('play').onclick=()=>{if(!mixer)return;if(!action)playClip();else{playing=!playing;action.paused=!playing;$('play').textContent=playing?'Pause animation':'Play animation';}};
+new ResizeObserver(()=>{const {width,height}=canvas.getBoundingClientRect();renderer.setSize(width,height,false);camera.aspect=width/Math.max(height,1);camera.updateProjectionMatrix();needsRender=true;}).observe(canvas.parentElement);
+renderer.setAnimationLoop(()=>{const delta=Math.min(clock.getDelta(),.05);if(document.hidden)return;controls.update();if(mixer&&playing){mixer.update(delta);needsRender=true;}if(needsRender){renderer.render(scene,camera);needsRender=false;}});
+document.addEventListener('visibilitychange',()=>{needsRender=true;});
+canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();status('GRAPHICS CONTEXT LOST');error('Window dobara kholo; graphics context reset hua hai.');if(activeId)api('error',{id:activeId,error:'WebGL context lost'}).catch(()=>{});});
+await refresh().catch(e=>{error(e.message);status('STUDIO ERROR');});
+// One bounded poll at a time keeps voice/chat imports visible in an existing window.
+setTimeout(async function poll(){try{await refresh();}catch{}setTimeout(poll,2000);},2000);
+</script></body></html>

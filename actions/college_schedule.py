@@ -147,11 +147,34 @@ class ScheduleQueryEngine:
                 msg = "You have no more classes remaining today, sir."
             return {"success": True, "type": "current_next_class", "message": msg, "data": status_res}
 
-        elif "monday" in p_lower:
-            classes = self.store.get_day_classes("Monday")
-            items = [f"• {c['time']}: {c['course_name']} in {c['room']}" for c in classes]
-            msg = "Monday Schedule:\n" + "\n".join(items) if items else "No Monday classes."
-            return {"success": True, "type": "day_schedule", "day": "Monday", "message": msg}
+        # Day mapping for English and Hindi/Hinglish
+        day_map = {
+            "monday": "Monday", "somwar": "Monday",
+            "tuesday": "Tuesday", "mangalwar": "Tuesday",
+            "wednesday": "Wednesday", "budhwar": "Wednesday",
+            "thursday": "Thursday", "guruwar": "Thursday", "veervar": "Thursday",
+            "friday": "Friday", "shukrawar": "Friday",
+            "saturday": "Saturday", "shanivar": "Saturday",
+            "sunday": "Sunday", "ravivar": "Sunday"
+        }
+        for kw, d_name in day_map.items():
+            if kw in p_lower:
+                classes = self.store.get_day_classes(d_name)
+                if not classes:
+                    msg = f"No classes scheduled for {d_name}, Boss."
+                else:
+                    items = [f"• {c['time']}: {c['course_name']} ({c['course_code']}) in {c['room']} by {c['faculty']}" for c in classes]
+                    msg = f"{d_name} Schedule ({len(classes)} classes):\n" + "\n".join(items)
+                return {"success": True, "type": "day_schedule", "day": d_name, "message": msg}
+
+        # Professor / Faculty inquiry
+        if any(k in p_lower for k in ["professor", "instructor", "faculty", "kaun padhata hai", "teacher"]):
+            courses = self.store._data.get("courses", []) if hasattr(self.store, "_data") else []
+            raw = load_college_config()
+            courses_list = raw.get("courses", [])
+            items = [f"• {c.get('name')} ({c.get('code')}): {c.get('instructor', 'N/A')}" for c in courses_list]
+            msg = "Faculty list for your enrolled courses, Boss:\n" + "\n".join(items)
+            return {"success": True, "type": "faculty_info", "message": msg}
 
         # General schedule overview
         today_res = self.get_today_schedule(now)

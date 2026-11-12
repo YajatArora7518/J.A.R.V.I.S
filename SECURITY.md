@@ -21,6 +21,13 @@ JARVIS AI is built around a defense-in-depth security model:
 2. **Deterministic State Verification**: Ensures requested actions accurately match actual OS state post-execution.
 3. **Local Credentials & Data Isolation**: API keys, user profiles, conversation transcripts, and memory states remain strictly local to the user's system and are never transmitted to unauthorized endpoints.
 
+## Operational Security Requirements
+
+- **Fail-closed confirmation**: HIGH and CRITICAL tools are denied unless an explicit confirmation callback is configured. A missing callback is not treated as approval.
+- **REST API authentication**: Set `JARVIS_API_KEY` before using protected API routes. There is no built-in default key. Send it in the `X-JARVIS-API-KEY` header.
+- **Filesystem boundaries**: File operations are limited by default to Desktop, Downloads, Documents, Pictures, Music, Videos, and the JARVIS project directory. Set `JARVIS_ALLOWED_PATHS` to a platform-separated list of additional trusted directories when needed.
+- **Canonical path checks**: Paths are resolved before access, which blocks traversal and symlink escapes outside the configured roots.
+
 ---
 
 ## 🚨 Reporting a Vulnerability

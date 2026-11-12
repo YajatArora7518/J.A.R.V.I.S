@@ -6,6 +6,8 @@ import os
 import shutil
 import logging
 import subprocess
+import re
+import shlex
 from typing import Dict, Any, List
 
 logger = logging.getLogger("JARVIS.CallsSMS")
@@ -25,6 +27,10 @@ def make_call(recipient: str, call_type: str = "voice", confirm_call: bool = Fal
         }
 
     clean_target = recipient.strip()
+    phone_number = re.sub(r"[\s().-]", "", clean_target)
+    if not re.fullmatch(r"\+?\d{3,15}", phone_number):
+        return {"success": False, "verified": False, "action": "make_call",
+                "message": "Phone call ke liye exact phone number do; contact name ko number se link nahi kiya gaya hai."}
 
     # High-risk action safety check
     if not confirm_call:
@@ -42,30 +48,32 @@ def make_call(recipient: str, call_type: str = "voice", confirm_call: bool = Fal
     adb_path = shutil.which("adb")
     if adb_path:
         try:
-            cmd = f'adb shell am start -a android.intent.action.CALL -d tel:{clean_target}'
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5.0)
+            cmd = [adb_path, "shell", "am", "start", "-a", "android.intent.action.CALL", "-d", f"tel:{phone_number}"]
+            res = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=5.0)
             if res.returncode == 0:
                 return {
                     "success": True,
                     "action": "make_call",
                     "target": clean_target,
                     "provider": "AndroidADB",
-                    "message": f"Calling {clean_target} on your mobile device.",
-                    "verified": True
+                    "message": f"Phone ko {clean_target} par call request bheji. Connection confirm nahi hai.",
+                    "verified": False,
+                    "status": "CALL_REQUESTED"
                 }
         except Exception as e:
             logger.debug(f"ADB dialer call failed: {e}")
 
     # Fallback to Windows Phone Link URI protocol
     try:
-        os.startfile(f"tel:{clean_target}")
+        os.startfile(f"tel:{phone_number}")
         return {
             "success": True,
             "action": "make_call",
             "target": clean_target,
             "provider": "WindowsPhoneLink",
-            "message": f"Initiated phone call to {clean_target} via Windows Phone Link.",
-            "verified": True
+            "message": f"{clean_target} ke liye Windows phone handler khola. Call connection confirm nahi hai.",
+            "verified": False,
+            "status": "CALL_REQUESTED"
         }
     except Exception as e:
         return {
@@ -82,9 +90,9 @@ def read_call_log() -> Dict[str, Any]:
     adb_path = shutil.which("adb")
     if adb_path:
         try:
-            cmd = 'adb shell content query --uri content://call_log/calls --projection name:number:type:date'
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5.0)
-            if res.returncode == 0 and res.stdout:
+            cmd = [adb_path, "shell", "content", "query", "--uri", "content://call_log/calls", "--projection", "name:number:type:date"]
+            res = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=5.0)
+            if res.returncode == 0 and res.stdout and not res.stdout.lstrip().lower().startswith(("error", "exception")):
                 return {
                     "success": True,
                     "action": "read_call_log",
@@ -97,11 +105,11 @@ def read_call_log() -> Dict[str, Any]:
             pass
 
     return {
-        "success": True,
+        "success": False,
         "action": "read_call_log",
         "provider": "NotificationEngine",
-        "message": "Boss, no recent missed calls found in call log.",
-        "verified": True
+        "message": "Phone call log ka live access connected nahi hai; missed calls verify nahi hue.",
+        "verified": False
     }
 
 
@@ -115,20 +123,26 @@ def send_sms_message(recipient: str, message_text: str) -> Dict[str, Any]:
             "verified": False
         }
 
-    clean_phone = recipient.replace("+", "").replace(" ", "").strip()
+    clean_phone = re.sub(r"[\s().-]", "", recipient.strip())
+    if not re.fullmatch(r"\+?\d{3,15}", clean_phone):
+        return {"success": False, "verified": False, "message": "SMS ke liye exact phone number do."}
 
     adb_path = shutil.which("adb")
     if adb_path:
         try:
-            cmd = f'adb shell service call isms 7 i32 0 s16 "com.android.mms" s16 "{clean_phone}" s16 "null" s16 "{message_text}" s16 "null" s16 "null"'
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5.0)
+            # Open a draft instead of pretending an undocumented binder call
+            # proves delivery. Quote the Android shell command as well.
+            remote = ["am", "start", "-a", "android.intent.action.SENDTO", "-d", f"smsto:{clean_phone}", "--es", "sms_body", message_text]
+            cmd = [adb_path, "shell", shlex.join(remote)]
+            res = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=5.0)
             if res.returncode == 0:
                 return {
                     "success": True,
                     "action": "send_sms",
                     "recipient": clean_phone,
-                    "message": f"SMS sent successfully to {clean_phone}.",
-                    "verified": True
+                    "message": f"{clean_phone} ke liye phone par SMS draft khola. Send/delivery confirm nahi hai.",
+                    "verified": False,
+                    "status": "SMS_DRAFT_REQUESTED"
                 }
         except Exception:
             pass
@@ -145,11 +159,16 @@ def send_sms_message(recipient: str, message_text: str) -> Dict[str, Any]:
 def read_sms_messages(target: str = "") -> Dict[str, Any]:
     """Reads SMS messages from Android bridge."""
     adb_path = shutil.which("adb")
+    clean_target = re.sub(r"[\s().-]", "", target.strip())
+    if target and not re.fullmatch(r"\+?\d{3,15}", clean_target):
+        return {"success": False, "verified": False, "message": "SMS recipient ke liye exact phone number do."}
     if adb_path:
         try:
-            cmd = 'adb shell content query --uri content://sms/inbox --projection address:body'
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5.0)
-            if res.returncode == 0 and res.stdout:
+            remote = ["content", "query", "--uri", "content://sms/inbox", "--projection", "address:body"]
+            if target:
+                remote.extend(["--where", f"address='{clean_target}'"])
+            res = subprocess.run([adb_path, "shell", shlex.join(remote)], shell=False, capture_output=True, text=True, timeout=5.0)
+            if res.returncode == 0 and res.stdout and not res.stdout.lstrip().lower().startswith(("error", "exception")):
                 return {
                     "success": True,
                     "action": "read_sms",
@@ -162,9 +181,9 @@ def read_sms_messages(target: str = "") -> Dict[str, Any]:
             pass
 
     return {
-        "success": True,
+        "success": False,
         "action": "read_sms",
         "provider": "NotificationEngine",
-        "message": "Boss, no unread SMS messages found.",
-        "verified": True
+        "message": "Phone SMS ka live access connected nahi hai; unread messages verify nahi hue.",
+        "verified": False
     }

@@ -23,8 +23,6 @@
     top: 0; left: 0;
     width: 100%; height: 100%;
     z-index: 1;
-    transform: translateZ(0);
-    contain: strict;
     background: radial-gradient(circle at 50% 40%, rgba(3, 20, 36, 0.9) 0%, rgba(2, 7, 13, 0.98) 70%, rgba(1, 4, 8, 1) 100%);
   }
   canvas { display: block; }
@@ -283,6 +281,52 @@
   ::-webkit-scrollbar { width: 3px; height: 3px; }
   ::-webkit-scrollbar-track { background: rgba(2, 7, 13, 0.5); }
   ::-webkit-scrollbar-thumb { background: rgba(0, 217, 255, 0.35); border-radius: 2px; }
+
+  /* Reference clip: a spacious reactor, slim activity rail and readable dialogue. */
+  body { font-family: 'Segoe UI', sans-serif; background: #030708; }
+  #hud { padding: 20px 24px; }
+  .top-bar { height: 48px; flex-direction: row; margin-bottom: 18px; background: transparent; border: 0; box-shadow: none; z-index: 20; }
+  .top-logo { font-size: 19px; letter-spacing: 5px; }
+  .top-clock { font-size: 14px; letter-spacing: 1px; }
+  .top-date, .top-right { font-size: 10px; }
+  .main-grid { grid-template-columns: 210px minmax(0,1fr) 330px; gap: 22px; }
+  .holo-panel { background: rgba(5,18,21,.52); border-color: rgba(73,231,212,.15); border-radius: 10px; box-shadow: none; padding: 12px; }
+  .holo-panel::before, .holo-panel::after { display: none; }
+  .panel-header { font-size: 10px; letter-spacing: 1.8px; color: #77eedb; padding-bottom: 8px; margin-bottom: 10px; border-color: rgba(92,227,208,.12); }
+  .col-left { gap: 12px; overflow-y: auto; }
+  .col-left > .holo-panel { flex-shrink: 0; }
+  .col-left > .holo-panel[style*="flex: 1"] { min-height: 100px !important; }
+  .col-center { gap: 12px; }
+  .col-right { display: none; }
+  body.controls-open .col-right { display: flex; position: fixed; z-index: 70; right: 24px; top: 85px; bottom: 24px; width: 340px; padding: 12px; background: #071419; border: 1px solid #22645e; border-radius: 14px; overflow-y: auto; }
+  #panel-college { display: none; }
+  .gauge-card { border: 0; background: transparent; padding: 2px; }
+  .gauge-val-num { font-size: 11px; }
+  .active-win-box { min-height: 35px; }
+  .timeline-desc { font-size: 11px; line-height: 1.6; }
+  .hud-anchor { display: none; }
+  .ha-bc { display: block; font-family: 'Consolas',monospace; font-size: 11px; letter-spacing: 2px; border: none; background: transparent; bottom: 8%; }
+  .core-viewport { min-height: 230px; }
+  .panel-response { background: transparent; border: 0; min-height: 54px; padding: 8px 20px; }
+  .response-text { font-size: 14px; font-weight: 400; line-height: 1.65; text-shadow: none; max-height: 90px; overflow: auto; }
+  .command-bar { gap: 8px; padding: 10px; border-radius: 14px; background: #08171b; }
+  .glass-input { font-family: 'Segoe UI',sans-serif; font-size: 13px; min-width: 0; min-height: 38px; }
+  .glass-btn { font-size: 11px; padding: 8px 12px; min-height: 34px; }
+  .panel-console { height: 130px; flex: 0 0 130px; }
+  .console-body { font-size: 10px; line-height: 1.7; }
+  .panel-chat-full { padding: 16px; }
+  .chat-stream { font-family: 'Segoe UI',sans-serif; font-size: 14px; line-height: 1.75; border: 0; background: transparent; padding: 4px 0; user-select: text; }
+  .chat-msg { margin: 0 0 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .chat-sender-jarvis, .chat-sender-user { display: block; font-size: 10px; letter-spacing: 1px; margin-bottom: 4px; }
+  .quick-actions { display: grid; gap: 7px; }
+  .quick-actions button { text-align: left; background: rgba(18,76,72,.18); border-color: rgba(77,225,206,.25); }
+  .task-board { max-height: 185px; overflow: auto; font-size: 11px; line-height: 1.5; }
+  .task-row { padding: 8px 0; border-bottom: 1px solid #15332f; }
+  .task-meta { color: #78a9a1; font-size: 10px; }
+  #canvas-container { background: radial-gradient(ellipse at 48% 42%,#071e20 0%,#03090b 58%,#020506 100%); }
+  @media (max-width: 1150px) { #hud { padding: 12px; } .main-grid { grid-template-columns: 165px minmax(0,1fr) 285px; gap: 12px; } .top-logo { font-size: 15px; } .top-date { display: none; } }
+  @media (max-height: 740px) { #hud { padding-top: 8px; } .top-bar { margin-bottom: 8px; height: 36px; } .panel-console { height: 75px; flex-basis: 75px; } .task-board { max-height: 100px; } .voice-hud-container { height: 65px; } .core-viewport { min-height: 180px; } }
+  @media (prefers-reduced-motion: reduce) { .mic-ring-outer, .mic-ring-inner { animation: none; } }
 </style>
 </head>
 <body>
@@ -309,15 +353,15 @@
       <span class="top-online" id="hud-online-tag">● ONLINE</span>
     </div>
     <div class="top-center">
-      <span class="top-clock" id="time-val">12:04:40 AM</span>
-      <span class="top-date" id="date-val">SUN 09 AUG 2026</span>
+      <span class="top-clock" id="time-val">--:--</span>
+      <span class="top-date" id="date-val">Syncing clock...</span>
     </div>
     <div class="top-right">
-      <div class="status-item">📡 <span id="hud-network">Wi-Fi</span></div>
+      <div class="status-item">📡 <span id="hud-network">--</span></div>
       <div class="status-item">🎙️ <span id="hud-mic">Mic ON</span></div>
       <div class="status-item">🔊 <span id="hud-speaker">Audio</span></div>
-      <div class="status-item">🔋 <span id="hud-battery">95%</span></div>
-      <button class="glass-btn" style="padding: 2px 8px; font-size: 7.5px;" onclick="toggleChatFocus()">💬 CHAT</button>
+      <div class="status-item">🔋 <span id="hud-battery">--</span></div>
+      <button class="glass-btn" onclick="document.body.classList.toggle('controls-open')">Controls</button>
     </div>
   </div>
 
@@ -326,46 +370,13 @@
 
     <!-- ── LEFT COLUMN ── -->
     <div class="col-left">
-      
-      <!-- 1. SYSTEM TELEMETRY -->
-      <div class="holo-panel" id="panel-sys" style="flex-shrink: 0;">
-        <div class="panel-header">
-          <span>❖ SYSTEM TELEMETRY</span>
-          <span class="panel-tag">LIVE</span>
-        </div>
-        <div class="gauges-grid">
-          <div class="gauge-card">
-            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-cpu" cx="22" cy="22" r="20" style="stroke: #00D9FF;"/></svg>
-            <div class="gauge-center"><span class="gauge-val-num" id="gval-cpu">26%</span></div>
-            <span class="gauge-lbl">CPU</span>
-          </div>
-          <div class="gauge-card">
-            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-ram" cx="22" cy="22" r="20" style="stroke: #1479FF;"/></svg>
-            <div class="gauge-center"><span class="gauge-val-num" id="gval-ram">87%</span></div>
-            <span class="gauge-lbl">RAM</span>
-          </div>
-          <div class="gauge-card">
-            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-disk" cx="22" cy="22" r="20" style="stroke: #00FFCC;"/></svg>
-            <div class="gauge-center"><span class="gauge-val-num" id="gval-disk">83%</span></div>
-            <span class="gauge-lbl">DISK</span>
-          </div>
-          <div class="gauge-card">
-            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-net" cx="22" cy="22" r="20" style="stroke: #6366FF;"/></svg>
-            <div class="gauge-center"><span class="gauge-val-num" id="gval-gpu">NET</span></div>
-            <span class="gauge-lbl">NETWORK</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 2. ACTIVE WINDOW -->
-      <div class="holo-panel" style="flex-shrink: 0;">
-        <div class="panel-header">
-          <span>★ ACTIVE WINDOW</span>
-          <button class="glass-btn" style="padding: 1px 6px; font-size: 7px;" onclick="callBridge('focusActiveWindow')">FOCUS</button>
-        </div>
-        <div class="active-win-box">
-          <div id="active-window-title" style="font-size: 8px; font-weight: 700; color: #D9F9FF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;">J.A.R.V.I.S — Command Center</div>
-          <span style="font-size: 9px; color: #00D9FF; cursor: pointer;" onclick="callBridge('focusActiveWindow')">❐</span>
+      <div class="holo-panel">
+        <div class="panel-header"><span>QUICK ACTIONS</span></div>
+        <div class="quick-actions">
+          <button class="glass-btn" onclick="callBridge('listenNow')">Talk to Jarvis</button>
+          <button class="glass-btn" onclick="dispatchCmd('Open WhatsApp')">Open WhatsApp</button>
+          <button class="glass-btn" onclick="dispatchCmd('Screen pe kya hai')">Analyse screen</button>
+          <button class="glass-btn" onclick="dispatchCmd('Aaj ka plan')">Aaj ka plan</button>
         </div>
       </div>
 
@@ -376,15 +387,14 @@
           <span class="panel-tag">LIVE FEED</span>
         </div>
         <div class="timeline-container" id="event-stream">
-          <div class="timeline-item"><div class="timeline-node"></div><span class="timeline-time">12:04:40</span><span class="timeline-desc">System initialized and ready</span></div>
-          <div class="timeline-item"><div class="timeline-node"></div><span class="timeline-time">12:04:12</span><span class="timeline-desc">Microphone connected</span></div>
-          <div class="timeline-item"><div class="timeline-node"></div><span class="timeline-time">12:03:58</span><span class="timeline-desc">J.A.R.V.I.S online</span></div>
-          <div class="timeline-item"><div class="timeline-node"></div><span class="timeline-time">12:03:42</span><span class="timeline-desc">Command executed</span></div>
-          <div class="timeline-item"><div class="timeline-node"></div><span class="timeline-time">12:03:36</span><span class="timeline-desc">Response generated</span></div>
         </div>
       </div>
 
       <!-- 4. VOICE STATUS HUD -->
+      <div class="holo-panel">
+        <div class="panel-header"><span>TASK BOARD</span></div>
+        <div class="task-board" id="task-board">Loading saved tasks...</div>
+      </div>
       <div class="holo-panel" style="flex-shrink: 0;">
         <div class="panel-header">
           <span>❖ VOICE STATUS</span>
@@ -418,7 +428,7 @@
       <!-- AI Response Banner -->
       <div class="holo-panel panel-response" id="panel-response">
         <div class="response-text" id="resp-text">
-          JARVIS: "Online and standing by for commands, sir."
+          Haan, bolo. Kya karna hai?
         </div>
       </div>
 
@@ -426,17 +436,16 @@
       <div class="command-bar">
         <button class="glass-btn" id="btn-attach" onclick="callBridge('attachFile')">📎 Attach</button>
         <button class="glass-btn" id="btn-mic-toggle" onclick="toggleMicButton()">🎙️ Mic ON</button>
-        <input type="text" class="glass-input" id="cmd-input" placeholder="Type a command or speak..." onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendCmdInput(); }">
+        <input type="text" class="glass-input" id="cmd-input" placeholder="Bolo ya likho — kya karna hai?" aria-label="Command" onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendCmdInput(); }">
         <button class="glass-btn" style="background: #00D9FF; color: #02070D; border: none; font-weight: 900; width: 30px; padding: 4px 0;" onclick="sendCmdInput()">➤</button>
       </div>
 
       <!-- Monospaced Console Logs -->
       <div class="holo-panel panel-console">
         <div class="panel-header" style="margin-bottom: 4px;">
-          <span>■ JARVIS CONSOLE LOGS</span>
+          <span>ACTIVITY</span>
         </div>
         <div class="console-body" id="console-logs">
-          <div>[00:04:34] [SUCCESS] SYS: JARVIS online.</div>
         </div>
       </div>
 
@@ -444,6 +453,48 @@
 
     <!-- ── RIGHT COLUMN ── -->
     <div class="col-right">
+      <!-- 1. SYSTEM TELEMETRY -->
+      <div class="holo-panel" id="panel-sys" style="flex-shrink: 0;">
+        <div class="panel-header">
+          <span>❖ SYSTEM TELEMETRY</span>
+          <span class="panel-tag">LIVE</span>
+        </div>
+        <div class="gauges-grid">
+          <div class="gauge-card">
+            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-cpu" cx="22" cy="22" r="20" style="stroke: #00D9FF;"/></svg>
+            <div class="gauge-center"><span class="gauge-val-num" id="gval-cpu">--</span></div>
+            <span class="gauge-lbl">CPU</span>
+          </div>
+          <div class="gauge-card">
+            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-ram" cx="22" cy="22" r="20" style="stroke: #1479FF;"/></svg>
+            <div class="gauge-center"><span class="gauge-val-num" id="gval-ram">--</span></div>
+            <span class="gauge-lbl">RAM</span>
+          </div>
+          <div class="gauge-card">
+            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-disk" cx="22" cy="22" r="20" style="stroke: #00FFCC;"/></svg>
+            <div class="gauge-center"><span class="gauge-val-num" id="gval-disk">--</span></div>
+            <span class="gauge-lbl">DISK</span>
+          </div>
+          <div class="gauge-card">
+            <svg class="gauge-svg" viewBox="0 0 44 44"><circle class="gauge-bg" cx="22" cy="22" r="20"/><circle class="gauge-fill" id="ring-net" cx="22" cy="22" r="20" style="stroke: #6366FF;"/></svg>
+            <div class="gauge-center"><span class="gauge-val-num" id="gval-gpu">NET</span></div>
+            <span class="gauge-lbl">NETWORK</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. ACTIVE WINDOW -->
+      <div class="holo-panel" style="flex-shrink: 0;">
+        <div class="panel-header">
+          <span>★ ACTIVE WINDOW</span>
+          <button class="glass-btn" style="padding: 1px 6px; font-size: 7px;" onclick="callBridge('focusActiveWindow')">FOCUS</button>
+        </div>
+        <div class="active-win-box">
+          <div id="active-window-title" style="font-size: 8px; font-weight: 700; color: #D9F9FF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;">J.A.R.V.I.S — Command Center</div>
+          <span style="font-size: 9px; color: #00D9FF; cursor: pointer;" onclick="callBridge('focusActiveWindow')">❐</span>
+        </div>
+      </div>
+
       
       <!-- 1. TOOLS MATRIX -->
       <div class="holo-panel" style="flex: 1; min-height: 0;">
@@ -460,7 +511,7 @@
         <div class="panel-header">
           <span>📅 COLLEGE MODE</span>
         </div>
-        <div id="college-info" style="font-size: 8px; color: #6FA9BA; line-height: 1.35;">College Schedule Overview — Sunday: 0 classes scheduled.</div>
+        <div id="college-info" style="font-size: 8px; color: #6FA9BA; line-height: 1.35;">Loading today's schedule...</div>
       </div>
 
       <!-- 3. MEMORY INTELLIGENCE -->
@@ -472,9 +523,9 @@
         <div class="memory-body">
           <canvas class="memory-graph-canvas" id="mem-canvas"></canvas>
           <div style="font-size: 8px; color: #D9F9FF; display: flex; flex-direction: column; gap: 2px;">
-            <div id="mem-items">Remembered Items: 7</div>
-            <div id="mem-topics">Topics: 6 Categories</div>
-            <div id="mem-updated" style="color: #6FA9BA; font-size: 7.5px;">Last Updated: 12:04 AM</div>
+            <div id="mem-items">Remembered Items: —</div>
+            <div id="mem-topics">Topics: —</div>
+            <div id="mem-updated" style="color: #6FA9BA; font-size: 7.5px;">Loading memory...</div>
           </div>
         </div>
         <button class="glass-btn" style="width: 100%; border-radius: 4px; padding: 3px 0; font-size: 8px;" onclick="callBridge('openMemorySearch')">SEARCH MEMORY</button>
@@ -508,14 +559,14 @@
     <div class="col-chat">
       <div class="holo-panel panel-chat-full" id="chat-panel">
         <div class="panel-header">
-          <span>◆ JARVIS CHAT</span>
+          <span>CONVERSATION</span>
           <span class="top-online">ONLINE</span>
         </div>
         <div class="chat-stream" id="chat-display">
-          <div class="chat-msg"><span class="chat-sender-jarvis">JARVIS:</span> Hello sir, how may I assist you today?</div>
+          <div class="chat-msg"><span class="chat-sender-jarvis">JARVIS:</span> Haan, bolo. Kya karna hai?</div>
         </div>
         <div style="display: flex; gap: 4px; margin-top: auto;">
-          <input type="text" class="glass-input" id="chat-input" placeholder="Ask JARVIS anything..." onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendChatMessage(); }">
+          <input type="text" class="glass-input" id="chat-input" placeholder="Ask, plan, or write a draft..." aria-label="Chat" onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendChatMessage(); }">
           <button class="glass-btn" style="background: #00D9FF; color: #02070D; border: none; font-weight: 900; width: 28px; padding: 4px 0;" onclick="sendChatMessage()">➤</button>
         </div>
       </div>
@@ -561,15 +612,20 @@ var hexCoreMat = typeof hexCoreMat !== 'undefined' ? hexCoreMat : null;
 
 // QWebChannel Bridge Integration
 var pyBridgeObj = null;
+var webChannelConnecting = false;
 
 function initQWebBridge() {
-  if (typeof qwebchannel !== 'undefined' && typeof qt !== 'undefined' && qt.webChannelTransport) {
+  if (pyBridgeObj || webChannelConnecting) return;
+  if (typeof QWebChannel === 'function' && typeof qt !== 'undefined' && qt.webChannelTransport) {
     try {
-      new qwebchannel.QWebChannel(qt.webChannelTransport, function(channel) {
+      webChannelConnecting = true;
+      new QWebChannel(qt.webChannelTransport, function(channel) {
         pyBridgeObj = channel.objects.pyBridge;
         window.pyBridge = pyBridgeObj;
+        webChannelConnecting = false;
       });
     } catch (e) {
+      webChannelConnecting = false;
       console.warn('[JS] QWebChannel bridge note:', e);
     }
   }
@@ -633,8 +689,7 @@ function submitTextCommand(inputId) {
 
   // 3. Immediate UI feedback
   if (window.JARVIS3DCore) {
-    if (typeof window.JARVIS3DCore.appendChat === 'function') window.JARVIS3DCore.appendChat('You', cmdText);
-    if (typeof window.JARVIS3DCore.addAction === 'function') window.JARVIS3DCore.addAction('Executing: ' + cmdText);
+    // Python's acknowledged dispatch adds the user message and action once.
     if (typeof window.JARVIS3DCore.setResponse === 'function') window.JARVIS3DCore.setResponse('Processing ' + cmdText + '...');
   }
 
@@ -644,7 +699,7 @@ function submitTextCommand(inputId) {
     var rEl = document.getElementById('resp-text');
     if (rEl && rEl.innerText && rEl.innerText.indexOf('Processing') !== -1) {
       console.warn('[CHAT][' + cid + '] Watchdog triggered for stuck processing state.');
-      rEl.innerText = 'JARVIS: "Command execution completed."';
+      rEl.innerText = 'JARVIS: "Abhi final result nahi mila. Command dobara bhejne se pehle wait karo."';
     }
   }, 12000);
 
@@ -723,8 +778,8 @@ camera.position.set(0, 0, 12.8);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setSize(initW, initH);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
-renderer.setClearColor(0x02070D, 0);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.setClearColor(0x02070D, 1);
 container.appendChild(renderer.domElement);
 
 const composer = new EffectComposer(renderer);
@@ -815,7 +870,7 @@ function updateCoreCanvas(pulse = 0) {
   cctx.font = '900 20px "Segoe UI", "Consolas", monospace';
   cctx.shadowColor = stateColorHex;
   cctx.shadowBlur = 12;
-  const stateLabel = currentState === 'IDLE' ? 'STANDBY' : currentState;
+  const stateLabel = currentState === 'THINKING' ? 'WORKING...' : currentState === 'IDLE' ? 'STANDBY' : currentState;
   cctx.fillText('● ' + stateLabel, cx, cy + 62);
   cctx.shadowBlur = 0;
 
@@ -1117,6 +1172,40 @@ nodeMat = new THREE.PointsMaterial({
 const particlePoints = new THREE.Points(particleGeo, nodeMat);
 coreGroup.add(particlePoints);
 
+// Organic spherical reactor from the user's video; state/audio remain real inputs.
+const reactorMaterial = new THREE.ShaderMaterial({
+  uniforms: {uTime: {value: 0}, uAudio: {value: 0}, uColor: {value: new THREE.Color(0x36ffe0)}},
+  transparent: true, wireframe: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: `uniform float uTime; uniform float uAudio;
+    varying float energy;
+    void main(){
+      vec3 n = normalize(position);
+      float wave = sin(n.x*9.0+uTime*.8)*cos(n.y*11.0-uTime*.6)*sin(n.z*8.0+uTime*.4);
+      energy = .55 + .45*wave;
+      vec3 p = position * (1.0 + wave*(.045+uAudio*.07));
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(p,1.0);
+    }`,
+  fragmentShader: `uniform vec3 uColor; varying float energy;
+    void main(){gl_FragColor=vec4(uColor,.15+energy*.32);}`
+});
+const reactorOrb = new THREE.Mesh(new THREE.SphereGeometry(2.65, 64, 44), reactorMaterial);
+coreGroup.add(reactorOrb);
+const glowCanvas = document.createElement('canvas');
+glowCanvas.width = glowCanvas.height = 128;
+const glowContext = glowCanvas.getContext('2d');
+const glowGradient = glowContext.createRadialGradient(64,64,0,64,64,64);
+glowGradient.addColorStop(0,'rgba(255,255,255,1)');
+glowGradient.addColorStop(.08,'rgba(188,255,248,.95)');
+glowGradient.addColorStop(.25,'rgba(30,255,225,.5)');
+glowGradient.addColorStop(1,'rgba(0,255,210,0)');
+glowContext.fillStyle = glowGradient;
+glowContext.fillRect(0,0,128,128);
+const reactorGlow = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(glowCanvas), transparent:true, blending:THREE.AdditiveBlending, depthWrite:false}));
+reactorGlow.scale.set(3.2,3.2,1);
+coreGroup.add(reactorGlow);
+[corePlaneMesh,hexOuterLine,hexInnerLine,hexCoreLine,cornerTickLines,arcGroup1,arcGroup2,gaugeLines,orbitalLine,satGroup,arcGroup5].forEach(object=>object.visible=false);
+nodeMat.opacity = .7;
+
 // ═══════════════════════════════════════════════════════════
 // WAVEFORM & DATA LINKS SETUP
 // ═══════════════════════════════════════════════════════════
@@ -1138,7 +1227,7 @@ if (container) {
   container.style.cursor = 'default';
 }
 
-const CORE_BASE_SCALE = 0.85;
+let CORE_BASE_SCALE = 0.85;
 let targetAudioScale = 1.0;
 let currentAudioScale = 1.0;
 let currentSpeedMult = 1.0;
@@ -1146,11 +1235,38 @@ let lastCanvasUpdate = 0;
 
 const clock = new THREE.Clock();
 
+let corePixelX = (window.innerWidth || 1280) * 0.5;
+let corePixelY = (window.innerHeight || 800) * 0.48;
+
+function updateCoreAlignment() {
+  const vp = document.querySelector('.core-viewport');
+  if (!vp) return;
+  const rect = vp.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+
+  corePixelX = rect.left + rect.width / 2;
+  corePixelY = rect.top + rect.height / 2;
+
+  const vHeight = 2.0 * Math.tan((camera.fov * Math.PI / 180) / 2.0) * camera.position.z;
+  const vWidth = vHeight * (window.innerWidth / window.innerHeight);
+
+  coreGroup.position.x = ((corePixelX / window.innerWidth) - 0.5) * vWidth;
+  coreGroup.position.y = (0.5 - (corePixelY / window.innerHeight)) * vHeight;
+
+  // Scale coreGroup so outer ring fits cleanly within .core-viewport
+  // Base outer diameter of coreGroup elements is ~9.6 world units
+  const fitWorldHeight = (rect.height / window.innerHeight) * vHeight;
+  const fitWorldWidth = (rect.width / window.innerWidth) * vWidth;
+  const fitDiameter = Math.min(fitWorldWidth, fitWorldHeight);
+  CORE_BASE_SCALE = Math.max(0.20, (fitDiameter / 6.0) * 0.82);
+}
+
 // Data Links Canvas Overlay
 const linkCanvas = document.getElementById('link-canvas');
 const lctx = linkCanvas ? linkCanvas.getContext('2d') : null;
 let dashOffset = 0;
 let cachedGradients = [];
+let cachedPanelCenters = [];
 
 function updatePanelCenters() {
   cachedPanelCenters = [];
@@ -1161,7 +1277,7 @@ function updatePanelCenters() {
   });
 
   if (linkCanvas && lctx) {
-    const cx = linkCanvas.width * 0.50, cy = linkCanvas.height * 0.48;
+    const cx = corePixelX, cy = corePixelY;
     for (let i = 0; i < cachedPanelCenters.length; i++) {
       const pt = cachedPanelCenters[i];
       const grad = lctx.createLinearGradient(cx, cy, pt.px, pt.py);
@@ -1177,6 +1293,7 @@ function syncCanvasDimensions() {
     linkCanvas.width = window.innerWidth;
     linkCanvas.height = window.innerHeight;
   }
+  updateCoreAlignment();
   updatePanelCenters();
 }
 syncCanvasDimensions();
@@ -1184,7 +1301,7 @@ syncCanvasDimensions();
 function drawDataLinks() {
   if (!linkCanvas || !lctx || cachedPanelCenters.length === 0) return;
   lctx.clearRect(0, 0, linkCanvas.width, linkCanvas.height);
-  const cx = linkCanvas.width * 0.50, cy = linkCanvas.height * 0.48;
+  const cx = corePixelX, cy = corePixelY;
   dashOffset = (dashOffset - 0.4) % 12;
   lctx.lineWidth = 1; lctx.setLineDash([3, 5]); lctx.lineDashOffset = dashOffset;
   for (let i = 0; i < cachedPanelCenters.length; i++) {
@@ -1201,11 +1318,34 @@ function drawDataLinks() {
 // 6. AUTONOMOUS ANIMATION LOOP — 60 FPS HUD REACTOR MOTION
 // ═══════════════════════════════════════════════════════════
 
-function animate() {
+let lastRenderedAt = -Infinity;
+function animate(frameTime = performance.now()) {
   requestAnimationFrame(animate);
-  if (document.hidden) return;
-  const dt = Math.min(clock.getDelta(), 0.033);
+  const activeAnimation = ['SPEAKING','THINKING','SEARCHING','EXECUTING','PROCESSING'].includes(currentState);
+  const frameInterval = 1000 / (activeAnimation ? 60 : 30);
+  if (frameTime - lastRenderedAt < frameInterval - 0.5) return;
+  // NOTE: document.hidden can be permanently true in PyQt6 QWebEngineView
+  // Use document.visibilityState only as a soft hint, never block rendering entirely
+  if (document.visibilityState === 'hidden' && typeof window._jarvis3dReady !== 'undefined' && window._forceRender !== true) {
+    // Allow at least 1 render per second even if "hidden" to handle WebEngine quirks
+    if (!window._lastForcedRender) window._lastForcedRender = 0;
+    var now = performance.now();
+    if (now - window._lastForcedRender < 1000) return;
+    window._lastForcedRender = now;
+  }
+  lastRenderedAt = frameTime;
+  const dt = Math.min(clock.getDelta(), 0.1);
   const t = clock.getElapsedTime();
+  reactorMaterial.uniforms.uTime.value = t;
+  reactorMaterial.uniforms.uAudio.value = audioLevel;
+  reactorOrb.rotation.y += dt * .09 * currentSpeedMult;
+  reactorOrb.rotation.z = Math.sin(t*.13)*.15;
+  reactorGlow.scale.setScalar(3.2 + audioLevel*.35);
+
+  if (!window._lastAligned || t - window._lastAligned > 0.5) {
+    window._lastAligned = t;
+    updateCoreAlignment();
+  }
 
   // Smooth State Speed Transitions
   let targetSpeedMult = 1.0;
@@ -1219,20 +1359,22 @@ function animate() {
   currentSpeedMult += (targetSpeedMult - currentSpeedMult) * Math.min(1.0, dt * 4.0);
 
   // Multi-directional layer rotations
-  hexCoreLine.rotation.z -= 0.35 * currentSpeedMult * dt;
-  arcGroup1.rotation.z -= 0.18 * currentSpeedMult * dt;
-  arcGroup2.rotation.z += 0.22 * currentSpeedMult * dt;
-  sweepArc1.rotation.z += 0.65 * currentSpeedMult * dt;
-  sweepArc2.rotation.z += 0.45 * currentSpeedMult * dt;
-  gaugeLines.rotation.z -= 0.04 * currentSpeedMult * dt;
-  arcGroup5.rotation.z += 0.12 * currentSpeedMult * dt;
+  if (hexCoreLine.visible) hexCoreLine.rotation.z -= 0.35 * currentSpeedMult * dt;
+  if (arcGroup1.visible) arcGroup1.rotation.z -= 0.18 * currentSpeedMult * dt;
+  if (arcGroup2.visible) {
+    arcGroup2.rotation.z += 0.22 * currentSpeedMult * dt;
+    sweepArc1.rotation.z += 0.65 * currentSpeedMult * dt;
+    sweepArc2.rotation.z += 0.45 * currentSpeedMult * dt;
+  }
+  if (gaugeLines.visible) gaugeLines.rotation.z -= 0.04 * currentSpeedMult * dt;
+  if (arcGroup5.visible) arcGroup5.rotation.z += 0.12 * currentSpeedMult * dt;
 
   // Gentle subtle 3D tilt
   coreGroup.rotation.x = Math.sin(t * 0.4) * 0.04;
   coreGroup.rotation.y = Math.cos(t * 0.3) * 0.04;
 
   // Satellite node orbital motion
-  satellites.forEach((sat) => {
+  if (satGroup.visible) satellites.forEach((sat) => {
     sat.angle += sat.speed * currentSpeedMult * dt;
     const sx = Math.cos(sat.angle) * sat.radius;
     const sy = Math.sin(sat.angle) * sat.radius;
@@ -1262,7 +1404,7 @@ function animate() {
   coreGroup.scale.setScalar(finalScale);
 
   // Periodic core canvas update (~20 fps)
-  if (t - lastCanvasUpdate > 0.05) {
+  if (corePlaneMesh.visible && t - lastCanvasUpdate > 0.05) {
     lastCanvasUpdate = t;
     updateCoreCanvas(Math.sin(t * pulseRate) * 0.5 + 0.5);
   }
@@ -1276,9 +1418,11 @@ function animate() {
   }
 
   drawDataLinks();
-  composer.render();
+  renderer.render(scene, camera);
 }
 animate();
+
+
 
 
 
@@ -1286,8 +1430,8 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
   syncCanvasDimensions();
+  updateCoreAlignment();
 });
 
 // Default Tool Icons map for standard registry tools
@@ -1309,9 +1453,13 @@ function updateGauge(ringId, valId, valPercent, suffix) {
 // PYTHON ↔ JAVASCRIPT API CONTRACT
 // ════════════════════════════════════════════
 window.JARVIS3DCore = {
+  getRenderStats: function() {
+    return {frames: renderer.info.render.frame, pixelRatio: renderer.getPixelRatio()};
+  },
   setState: function(state) {
     currentState = state ? state.toUpperCase() : 'IDLE';
     const sCol = STATE_COLORS[currentState] || STATE_COLORS.IDLE;
+    if (typeof reactorMaterial !== 'undefined') reactorMaterial.uniforms.uColor.value.setHex(sCol);
     if (typeof wireframeMat !== 'undefined' && wireframeMat && wireframeMat.color) wireframeMat.color.setHex(sCol);
     if (typeof outerWireMat !== 'undefined' && outerWireMat && outerWireMat.color) outerWireMat.color.setHex(sCol);
     if (typeof nodeMat !== 'undefined' && nodeMat && nodeMat.color) nodeMat.color.setHex(sCol);
@@ -1321,9 +1469,10 @@ window.JARVIS3DCore = {
     if (currentState === 'IDLE') {
       targetAudioScale = 1.0;
     }
-    const pill = document.getElementById('hud-core-pill'); if (pill) pill.innerText = '● ' + currentState;
-    const ns = document.getElementById('hud-neural-state'); if (ns) ns.innerText = currentState;
-    const vTag = document.getElementById('voice-tag'); if (vTag) vTag.innerText = currentState + '...';
+    const displayState = currentState === 'THINKING' ? 'WORKING' : currentState;
+    const pill = document.getElementById('hud-core-pill'); if (pill) pill.innerText = '● ' + displayState;
+    const ns = document.getElementById('hud-neural-state'); if (ns) ns.innerText = displayState;
+    const vTag = document.getElementById('voice-tag'); if (vTag) vTag.innerText = displayState + '...';
   },
 
   setAudioLevel: function(val) {
@@ -1450,8 +1599,11 @@ window.JARVIS3DCore = {
     item.className = 'timeline-item';
     const now = new Date();
     const timeStr = now.toTimeString().split(' ')[0];
-    item.innerHTML = `<div class="timeline-node"></div><span class="timeline-time">${timeStr}</span><span class="timeline-desc">${text}</span>`;
+    item.innerHTML = '<div class="timeline-node"></div><span class="timeline-time"></span><span class="timeline-desc"></span>';
+    item.querySelector('.timeline-time').textContent = timeStr;
+    item.querySelector('.timeline-desc').textContent = text;
     stream.insertBefore(item, stream.firstChild);
+    while (stream.children.length > 100) stream.lastChild.remove();
   },
 
   appendLog: function(text) {
@@ -1462,6 +1614,7 @@ window.JARVIS3DCore = {
       const timeStr = now.toTimeString().split(' ')[0];
       line.innerText = `[${timeStr}] ${text}`;
       consoleBody.appendChild(line);
+      while (consoleBody.children.length > 250) consoleBody.firstChild.remove();
       consoleBody.scrollTop = consoleBody.scrollHeight;
     }
     if (text.startsWith('Jarvis:') || text.startsWith('JARVIS:')) {
@@ -1478,9 +1631,28 @@ window.JARVIS3DCore = {
     const item = document.createElement('div');
     item.className = 'chat-msg';
     const senderClass = sender.toLowerCase() === 'you' ? 'chat-sender-user' : 'chat-sender-jarvis';
-    item.innerHTML = `<span class="${senderClass}">${sender}:</span> ${message}`;
+    const label = document.createElement('span');
+    label.className = senderClass;
+    label.textContent = sender + ':';
+    item.appendChild(label);
+    item.appendChild(document.createTextNode(' ' + message));
     chatDisplay.appendChild(item);
+    while (chatDisplay.children.length > 200) chatDisplay.firstChild.remove();
     chatDisplay.scrollTop = chatDisplay.scrollHeight;
+  },
+
+  setTasks: function(tasks) {
+    const board = document.getElementById('task-board'); if (!board) return;
+    board.replaceChildren();
+    const items = Array.isArray(tasks) ? tasks.slice(0, 12) : [];
+    if (!items.length) { board.textContent = 'No pending tasks. Tell me what to save or assign.'; return; }
+    items.forEach(task => {
+      const row = document.createElement('div'); row.className = 'task-row';
+      const title = document.createElement('div'); title.textContent = task.title || 'Untitled task';
+      const meta = document.createElement('small'); meta.className = 'task-meta';
+      meta.textContent = [task.assignee, task.priority, task.due_at].filter(Boolean).join(' · ');
+      row.append(title, meta); board.appendChild(row);
+    });
   },
 
   setCollegeInfo: function(text) {
@@ -1508,6 +1680,60 @@ const DEFAULT_TOOLS = [
   {name: 'vision', label: 'Vision'}, {name: 'more', label: 'More'}
 ];
 window.JARVIS3DCore.setTools(DEFAULT_TOOLS);
+
+window._threeDiag = { scene, camera, renderer, coreGroup };
+
+window._getDiagnostics = function() {
+  const c = document.querySelector('#canvas-container canvas');
+  const container = document.getElementById('canvas-container');
+  const cRect = c ? c.getBoundingClientRect() : null;
+  const contRect = container ? container.getBoundingClientRect() : null;
+  const cStyle = c ? window.getComputedStyle(c) : null;
+  const contStyle = container ? window.getComputedStyle(container) : null;
+
+  return {
+    canvas: {
+      exists: !!c,
+      width: c ? c.width : 0,
+      height: c ? c.height : 0,
+      boundingClientRect: cRect ? { width: cRect.width, height: cRect.height, top: cRect.top, left: cRect.left } : null,
+      computedDisplay: cStyle ? cStyle.display : null,
+      computedVisibility: cStyle ? cStyle.visibility : null,
+      computedOpacity: cStyle ? cStyle.opacity : null,
+      computedZIndex: cStyle ? cStyle.zIndex : null
+    },
+    container: {
+      exists: !!container,
+      dimensions: contRect ? { width: contRect.width, height: contRect.height, top: contRect.top, left: contRect.left } : null,
+      computedDisplay: contStyle ? contStyle.display : null,
+      computedVisibility: contStyle ? contStyle.visibility : null,
+      computedOpacity: contStyle ? contStyle.opacity : null,
+      computedZIndex: contStyle ? contStyle.zIndex : null
+    },
+    three: {
+      sceneChildrenLength: scene ? scene.children.length : 0,
+      renderCalls: renderer ? renderer.info.render.calls : 0,
+      triangles: renderer ? renderer.info.render.triangles : 0,
+      points: renderer ? renderer.info.render.points : 0,
+      lines: renderer ? renderer.info.render.lines : 0,
+      coreGroup: coreGroup ? {
+        exists: true,
+        visible: coreGroup.visible,
+        position: { x: coreGroup.position.x, y: coreGroup.position.y, z: coreGroup.position.z },
+        scale: { x: coreGroup.scale.x, y: coreGroup.scale.y, z: coreGroup.scale.z },
+        childrenCount: coreGroup.children.length,
+        attachedToScene: scene.children.includes(coreGroup)
+      } : null,
+      camera: camera ? {
+        position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        rotation: { x: camera.rotation.x, y: camera.rotation.y, z: camera.rotation.z },
+        near: camera.near,
+        far: camera.far,
+        aspect: camera.aspect
+      } : null
+    }
+  };
+};
 
 window._jarvis3dReady = true;
 </script>

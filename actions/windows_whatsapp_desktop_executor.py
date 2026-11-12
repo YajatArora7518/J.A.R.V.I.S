@@ -19,7 +19,7 @@ import pygetwindow as gw
 logger = logging.getLogger("JARVIS.WindowsWhatsAppDesktop")
 
 EXECUTION_TARGET_NAME = "WINDOWS_INSTALLED_WHATSAPP_DESKTOP"
-_SENT_MESSAGES_DEDUP_CACHE: Dict[str, float] = {}  # hash -> timestamp
+_SENT_MESSAGES_DEDUP_CACHE: Dict[str, Dict[str, Any]] = {}  # hash -> attempt/result
 _CALL_NOTIFICATION_DEDUP_CACHE: Dict[str, float] = {}  # call_id -> timestamp
 
 # Call State Constants
@@ -80,6 +80,55 @@ _CACHED_ACTIVE_CHAT: Optional[str] = None
 _CACHE_LAST_VERIFIED: float = 0.0
 
 
+def _type_text_safe(text: str) -> None:
+    """Types text using clipboard for reliable Unicode/Hinglish/emoji support.
+    Falls back to pyautogui.write() for pure ASCII."""
+    import pyautogui
+    try:
+        # Check if text is pure ASCII
+        text.encode("ascii")
+        pyautogui.write(text, interval=0.001)
+    except UnicodeEncodeError:
+        # Non-ASCII: use clipboard paste strategy
+        try:
+            import pyperclip
+            old_clip = ""
+            try:
+                old_clip = pyperclip.paste()
+            except Exception:
+                pass
+            pyperclip.copy(text)
+            time.sleep(0.05)
+            pyautogui.hotkey("ctrl", "v")
+            time.sleep(0.05)
+            # Restore old clipboard if possible
+            try:
+                pyperclip.copy(old_clip)
+            except Exception:
+                pass
+        except ImportError:
+            # No pyperclip: fallback to ctypes clipboard
+            try:
+                import ctypes
+                CF_UNICODETEXT = 13
+                user32 = ctypes.windll.user32
+                kernel32 = ctypes.windll.kernel32
+                user32.OpenClipboard(0)
+                user32.EmptyClipboard()
+                h_mem = kernel32.GlobalAlloc(0x0042, (len(text) + 1) * 2)
+                p_mem = kernel32.GlobalLock(h_mem)
+                ctypes.cdll.msvcrt.wcscpy(ctypes.c_wchar_p(p_mem), text)
+                kernel32.GlobalUnlock(h_mem)
+                user32.SetClipboardData(CF_UNICODETEXT, h_mem)
+                user32.CloseClipboard()
+                time.sleep(0.05)
+                pyautogui.hotkey("ctrl", "v")
+                time.sleep(0.05)
+            except Exception:
+                # Last resort: just try write
+                pyautogui.write(text, interval=0.005)
+
+
 def win32_get_active_window_title() -> str:
     """Returns active window title using direct Win32 User32 API (0.001 ms)."""
     try:
@@ -97,26 +146,28 @@ def win32_get_active_window_title() -> str:
 
 
 def win32_find_whatsapp_hwnd() -> Optional[int]:
-    """Finds WhatsApp HWND handle using direct Win32 EnumWindows (0.01 ms)."""
-    user32 = ctypes.windll.user32
-    target_hwnd = [None]
-
-    def _enum_windows_cb(hwnd, extra):
-        if user32.IsWindowVisible(hwnd):
-            length = user32.GetWindowTextLengthW(hwnd)
-            if length > 0:
-                buf = ctypes.create_unicode_buffer(length + 1)
-                user32.GetWindowTextW(hwnd, buf, length + 1)
-                t = buf.value.lower()
-                if "whatsapp" in t and not any(b in t for b in ["chrome", "edge", "browser", "web"]):
-                    target_hwnd[0] = hwnd
-                    return False
-        return True
-
-    WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
-    cb = WNDENUMPROC(_enum_windows_cb)
-    user32.EnumWindows(cb, 0)
-    return target_hwnd[0]
+    """Prefer the actual installed app root, not its covered WebView window."""
+    import win32gui
+    import win32process
+    import psutil
+    matches = []
+    def collect(hwnd, _):
+        if not win32gui.IsWindowVisible(hwnd):
+            return
+        title = win32gui.GetWindowText(hwnd).lower()
+        if "whatsapp" not in title:
+            return
+        try:
+            process = psutil.Process(win32process.GetWindowThreadProcessId(hwnd)[1])
+            if process.name().lower() in ("whatsapp.root.exe", "whatsapp.exe"):
+                matches.append(hwnd)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            return
+    win32gui.EnumWindows(collect, None)
+    active = win32gui.GetForegroundWindow()
+    if active in matches:
+        return active
+    return matches[0] if len(matches) == 1 else None
 
 
 def win32_activate_hwnd(hwnd: int) -> bool:
@@ -126,7 +177,15 @@ def win32_activate_hwnd(hwnd: int) -> bool:
         if user32.IsIconic(hwnd):
             user32.ShowWindow(hwnd, 9)  # SW_RESTORE
         user32.SetForegroundWindow(hwnd)
-        return True
+        time.sleep(.05)
+        if user32.GetForegroundWindow() != hwnd:
+            # A user-requested foreground switch can be gated by Windows until
+            # keyboard input is seen. Verify the switch rather than assuming it.
+            import pyautogui
+            pyautogui.press("alt")
+            user32.SetForegroundWindow(hwnd)
+            time.sleep(.1)
+        return user32.GetForegroundWindow() == hwnd
     except Exception:
         return False
 
@@ -301,6 +360,7 @@ def launch_whatsapp() -> Tuple[bool, str]:
     """
     Launches installed WhatsApp Desktop application.
     STRICT RULE: ONLY ALLOWED WHEN _WHATSAPP_USER_ACTION_REQUESTED IS TRUE.
+    After launching, VERIFIES actual window/process presence before returning success.
     """
     if not _WHATSAPP_USER_ACTION_REQUESTED:
         logger.warning("[WindowsWhatsAppDesktop] REJECTED launch_whatsapp: _WHATSAPP_USER_ACTION_REQUESTED is False.")
@@ -311,19 +371,73 @@ def launch_whatsapp() -> Tuple[bool, str]:
         logger.warning("[WindowsWhatsAppDesktop] WhatsApp Desktop is not installed.")
         return False, "WhatsApp Desktop is not installed on this system."
 
-    try:
-        subprocess.run('explorer.exe shell:AppsFolder\\5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App', shell=True, capture_output=True, timeout=2.0)
-        time.sleep(0.5)
-        return True, "Launched installed WhatsApp Desktop application."
-    except Exception:
-        pass
+    # If already running, just focus it
+    if running:
+        ok, msg = focus_running_whatsapp()
+        if ok:
+            return True, msg
 
+    # Strategy 1: explorer.exe shell:AppsFolder with confirmed AUMID
+    _WHATSAPP_AUMIDS = [
+        "5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App",
+        "5319275A.WhatsAppDesktop_531f527m5524g!App",
+    ]
+    for aumid in _WHATSAPP_AUMIDS:
+        try:
+            subprocess.run(
+                f'explorer.exe shell:AppsFolder\\{aumid}',
+                shell=True, capture_output=True, timeout=3.0
+            )
+            logger.info(f"[WindowsWhatsAppDesktop] Launch attempt via AUMID: {aumid}")
+            # Wait and verify
+            if _wait_for_whatsapp_window(timeout=5.0):
+                return True, "Launched installed WhatsApp Desktop application."
+        except Exception as e:
+            logger.debug(f"[WindowsWhatsAppDesktop] AUMID launch failed ({aumid}): {e}")
+
+    # Strategy 2: whatsapp: protocol
     try:
         os.startfile("whatsapp:")
-        time.sleep(0.5)
-        return True, "Launched WhatsApp Desktop via protocol."
+        logger.info("[WindowsWhatsAppDesktop] Launch attempt via whatsapp: protocol")
+        if _wait_for_whatsapp_window(timeout=5.0):
+            return True, "Launched WhatsApp Desktop via protocol."
     except Exception as e:
-        return False, f"Failed to launch WhatsApp Desktop: {e}"
+        logger.debug(f"[WindowsWhatsAppDesktop] Protocol launch failed: {e}")
+
+    # Strategy 3: PowerShell Start-Process
+    try:
+        subprocess.run(
+            ['powershell', '-Command', 'Start-Process', f'shell:AppsFolder\\{_WHATSAPP_AUMIDS[0]}'],
+            capture_output=True, timeout=5.0
+        )
+        if _wait_for_whatsapp_window(timeout=5.0):
+            return True, "Launched WhatsApp Desktop via PowerShell."
+    except Exception as e:
+        logger.debug(f"[WindowsWhatsAppDesktop] PowerShell launch failed: {e}")
+
+    return False, "WhatsApp Desktop launch attempted but window/process could not be verified."
+
+
+def _wait_for_whatsapp_window(timeout: float = 5.0) -> bool:
+    """Wait for WhatsApp window/process to appear after launch."""
+    start = time.time()
+    while time.time() - start < timeout:
+        hwnd = win32_find_whatsapp_hwnd()
+        if hwnd:
+            global _CACHED_HWND
+            _CACHED_HWND = hwnd
+            return True
+        # Also check process
+        try:
+            import psutil
+            for proc in psutil.process_iter(['name']):
+                pname = (proc.info.get('name') or '').lower()
+                if 'whatsapp' in pname and 'chrome' not in pname and 'edge' not in pname:
+                    return True
+        except Exception:
+            pass
+        time.sleep(0.5)
+    return False
 
 
 def focus_installed_whatsapp_desktop() -> Tuple[bool, str]:
@@ -375,40 +489,76 @@ def close_whatsapp() -> Tuple[bool, str]:
     return True, "WhatsApp Desktop is closed."
 
 
+def _load_contact_config() -> Dict[str, Any]:
+    """Loads contact configuration from config/important_contacts.json."""
+    try:
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "important_contacts.json")
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        logger.debug(f"[WindowsWhatsAppDesktop] Contact config load failed: {e}")
+    return {}
+
+
 def resolve_contact_ambiguity(recipient_query: str) -> Dict[str, Any]:
     """
-    Checks contact catalog for recipient ambiguity.
-    Returns status: RESOLVED or AMBIGUOUS_CONTACT.
+    Resolves contact from config/important_contacts.json with alias support.
+    Returns status: RESOLVED, AMBIGUOUS_CONTACT, EMPTY, or NOT_FOUND.
     """
     if not recipient_query or not recipient_query.strip():
         return {"status": "EMPTY", "matches": []}
 
     q = recipient_query.strip().lower()
-    
-    known = [
-        {"name": "Rahul Sharma", "alias": "rahul"},
-        {"name": "Rahul Verma", "alias": "rahul"},
-        {"name": "Rahul Mehta", "alias": "rahul"},
-        {"name": "Aman Gupta", "alias": "aman"},
-        {"name": "Priya Singh", "alias": "priya"},
-        {"name": "Stark Industries", "alias": "stark"},
-    ]
+    # Strip conversational prefixes
+    q = re.sub(r"^(?:ab|bhai|jarvis|please|zara|aur|fir|phir)\s+", "", q, flags=re.IGNORECASE).strip()
+    config = _load_contact_config()
+    contact_aliases = config.get("contact_aliases", {})
+    important_contacts = config.get("important_contacts", [])
 
-    matches = [c for c in known if q in c["name"].lower() or q == c["alias"]]
-    
-    if len(matches) > 1:
-        names = [m["name"] for m in matches]
-        msg = f"Kaunse {recipient_query.title()} ko WhatsApp message/call karna hai? ({', '.join(names)})"
+    from actions.contact_directory import resolve_saved_contact
+    saved = resolve_saved_contact(recipient_query)
+    if saved and saved.get('status') == 'AMBIGUOUS_CONTACT':
+        return saved
+
+    # 1. Check alias-based resolution
+    alias_matches = []
+    for canonical_name, info in contact_aliases.items():
+        aliases = [a.lower() for a in info.get("aliases", [])]
+        display = info.get("display_name", canonical_name)
+        if q in aliases or q == canonical_name.lower() or q == display.lower():
+            alias_matches.append({"name": display, "canonical": canonical_name})
+
+    if len(alias_matches) == 1:
+        directory_match = resolve_saved_contact(alias_matches[0]['name'])
+        if directory_match and directory_match.get('status') == 'AMBIGUOUS_CONTACT':
+            return directory_match
+        return {"status": "RESOLVED", "contact": alias_matches[0]["name"]}
+    if len(alias_matches) > 1:
+        names = [m["name"] for m in alias_matches]
         return {
             "status": "AMBIGUOUS_CONTACT",
-            "message": msg,
+            "message": f"Kaunse {recipient_query.title()} ko WhatsApp message/call karna hai? ({', '.join(names)})",
             "matches": names,
             "requires_clarification": True
         }
 
-    if len(matches) == 1:
-        return {"status": "RESOLVED", "contact": matches[0]["name"]}
+    if saved:
+        return saved
 
+    # 2. Check important_contacts list (direct name match)
+    ic_matches = [c for c in important_contacts if q in c.lower() or c.lower() in q]
+    if len(ic_matches) == 1:
+        return {"status": "RESOLVED", "contact": ic_matches[0]}
+    if len(ic_matches) > 1:
+        return {
+            "status": "AMBIGUOUS_CONTACT",
+            "message": f"Kaunse {recipient_query.title()} ko WhatsApp message/call karna hai? ({', '.join(ic_matches)})",
+            "matches": ic_matches,
+            "requires_clarification": True
+        }
+
+    # 3. Not found in config — pass through as-is (user may have typed exact WhatsApp display name)
     return {"status": "RESOLVED", "contact": recipient_query.strip()}
 
 
@@ -422,280 +572,59 @@ class WindowsWhatsAppDesktopExecutor:
         """Direct entry point for focusing or launching installed WhatsApp Desktop."""
         return focus_installed_whatsapp_desktop()
 
-    def execute_send_message(
-        self,
-        recipient: str,
-        message: str,
-        command_id: Optional[str] = None,
-        correlation_id: Optional[str] = None,
-        force_send: bool = True
-    ) -> Dict[str, Any]:
-        """
-        High-Performance Optimized Send Message via Installed WhatsApp Desktop App.
-        """
-        global _CACHED_ACTIVE_CHAT
-        t0 = time.time()
-        cmd_id = command_id or f"wawin_msg_{int(t0 * 1000)}"
-        corr_id = correlation_id or f"wawin_corr_{int(t0 * 1000)}"
+    def execute_send_message(self, recipient, message, command_id=None, correlation_id=None, force_send=True):
+        from actions.whatsapp_desktop_dom import desktop_action
+        resolved = resolve_contact_ambiguity(recipient)
+        if resolved.get("status") == "AMBIGUOUS_CONTACT":
+            return {**resolved, "success": False, "verified": False, "execution_target": EXECUTION_TARGET_NAME}
+        target = resolved.get("contact", recipient)
+        key = _compute_message_hash(target, message)
+        previous = _SENT_MESSAGES_DEDUP_CACHE.get(key)
+        if previous and time.time() - previous["time"] < 60:
+            return {**previous["result"], "duplicate_prevented": True}
+        result = desktop_action("send", target, message)
+        result.update(action="whatsapp_send", recipient=target, command_id=command_id, correlation_id=correlation_id)
+        if result.get("success") or result.get("status") in ("SEND_UNVERIFIED", "SEND_ERROR"):
+            _SENT_MESSAGES_DEDUP_CACHE[key] = {"time": time.time(), "result": dict(result)}
+        return result
 
-        # 1. Contact Ambiguity Check
-        amb_check = resolve_contact_ambiguity(recipient)
-        if amb_check.get("status") == "AMBIGUOUS_CONTACT":
-            return {
-                "success": False,
-                "action": "whatsapp_send",
-                "message": amb_check["message"],
-                "matches": amb_check.get("matches", []),
-                "requires_clarification": True,
-                "verified": False,
-                "execution_target": EXECUTION_TARGET_NAME
-            }
+    def execute_voice_call(self, recipient):
+        return self._call("voice_call", recipient)
 
-        target_contact = amb_check.get("contact", recipient)
-        try:
-            from core.command_pipeline import get_conversation_context
-            get_conversation_context()["last_contact"] = target_contact
-        except Exception:
-            pass
+    def execute_video_call(self, recipient):
+        return self._call("video_call", recipient)
 
-        # 2. Duplicate Send Protection
-        msg_hash = _compute_message_hash(target_contact, message)
-        now = time.time()
-        if msg_hash in _SENT_MESSAGES_DEDUP_CACHE:
-            if now - _SENT_MESSAGES_DEDUP_CACHE[msg_hash] < 60.0:
-                logger.warning(f"[WindowsWhatsAppDesktop] Duplicate send prevented for '{target_contact}'")
-                return {
-                    "success": True,
-                    "action": "whatsapp_send",
-                    "recipient": target_contact,
-                    "message": f"Message to {target_contact} was already sent recently. Duplicate send prevented.",
-                    "verified": True,
-                    "duplicate_prevented": True,
-                    "execution_target": EXECUTION_TARGET_NAME
-                }
+    def _call(self, action, recipient):
+        from actions.whatsapp_desktop_dom import desktop_action
+        resolved = resolve_contact_ambiguity(recipient)
+        if resolved.get("status") == "AMBIGUOUS_CONTACT":
+            return {**resolved, "success": False, "verified": False, "execution_target": EXECUTION_TARGET_NAME}
+        target = resolved.get("contact", recipient)
+        result = desktop_action(action, target)
+        if result.get("success") and result.get("verified"):
+            call_state_machine.transition_to(STATE_OUTGOING, target, "video" if action == "video_call" else "voice")
+        return result
 
-        # 3. Smart Foreground Activation & Active Chat Reuse
-        focused, focus_msg = focus_installed_whatsapp_desktop()
-        if not focused:
-            return {
-                "success": False,
-                "action": "whatsapp_send",
-                "recipient": target_contact,
-                "message": f"WhatsApp Desktop focus failed: {focus_msg}",
-                "verified": False,
-                "execution_target": EXECUTION_TARGET_NAME
-            }
+    def execute_answer_call(self):
+        from actions.whatsapp_desktop_dom import desktop_action
+        result = desktop_action("answer")
+        if result.get("success") and result.get("verified"):
+            call_state_machine.transition_to(STATE_ACTIVE)
+        return result
 
-        # 4. Search Contact (Skip if active chat is already target_contact)
-        try:
-            import pyautogui
-            pyautogui.FAILSAFE = False
+    def execute_decline_call(self):
+        from actions.whatsapp_desktop_dom import desktop_action
+        result = desktop_action("decline")
+        if result.get("success") and result.get("verified"):
+            call_state_machine.transition_to(STATE_ENDED)
+        return result
 
-            if _CACHED_ACTIVE_CHAT != target_contact.lower():
-                pyautogui.hotkey("ctrl", "f")
-                time.sleep(0.05)
-                pyautogui.hotkey("ctrl", "a")
-                pyautogui.write(target_contact, interval=0.001)
-                time.sleep(0.08)
-                pyautogui.press("enter")
-                time.sleep(0.05)
-                _CACHED_ACTIVE_CHAT = target_contact.lower()
-
-            # Fast Text Insertion & Send
-            pyautogui.write(message, interval=0.001)
-            time.sleep(0.03)
-            pyautogui.press("enter")
-
-            # Fast State-Based Verification Loop
-            verified = True
-
-            _SENT_MESSAGES_DEDUP_CACHE[msg_hash] = now
-            msg_res = f"Message successfully sent and verified to {target_contact} via installed Windows WhatsApp Desktop."
-
-            return {
-                "success": True,
-                "action": "whatsapp_send",
-                "recipient": target_contact,
-                "message": msg_res,
-                "verified": verified,
-                "command_id": cmd_id,
-                "correlation_id": corr_id,
-                "execution_target": EXECUTION_TARGET_NAME,
-                "latency_ms": round((time.time() - t0) * 1000, 2)
-            }
-        except Exception as err:
-            logger.error(f"[WindowsWhatsAppDesktop] UI send error: {err}")
-            return {
-                "success": False,
-                "action": "whatsapp_send",
-                "recipient": target_contact,
-                "message": f"Installed WhatsApp Desktop send failed: {err}",
-                "verified": False,
-                "execution_target": EXECUTION_TARGET_NAME
-            }
-
-    def execute_voice_call(self, recipient: str) -> Dict[str, Any]:
-        """Initiates WhatsApp Voice Call on Installed Desktop App."""
-        global _CACHED_ACTIVE_CHAT
-        t0 = time.time()
-        amb_check = resolve_contact_ambiguity(recipient)
-        if amb_check.get("status") == "AMBIGUOUS_CONTACT":
-            return {
-                "success": False,
-                "action": "whatsapp_voice_call",
-                "message": amb_check["message"],
-                "requires_clarification": True,
-                "execution_target": EXECUTION_TARGET_NAME
-            }
-
-        target_contact = amb_check.get("contact", recipient)
-        focused, focus_msg = focus_installed_whatsapp_desktop()
-        if not focused:
-            return {"success": False, "action": "whatsapp_voice_call", "message": focus_msg, "execution_target": EXECUTION_TARGET_NAME}
-
-        try:
-            import pyautogui
-            pyautogui.FAILSAFE = False
-
-            if _CACHED_ACTIVE_CHAT != target_contact.lower():
-                pyautogui.hotkey("ctrl", "f")
-                time.sleep(0.15)
-                pyautogui.write(target_contact, interval=0.005)
-                time.sleep(0.3)
-                pyautogui.press("enter")
-                time.sleep(0.2)
-                _CACHED_ACTIVE_CHAT = target_contact.lower()
-
-            # Trigger Voice Call action
-            call_state_machine.transition_to(STATE_OUTGOING, contact=target_contact, call_type="voice")
-            call_state_machine.transition_to(STATE_RINGING, contact=target_contact, call_type="voice")
-
-            msg_res = f"WhatsApp voice call initiated to {target_contact} via installed Windows WhatsApp Desktop."
-            return {
-                "success": True,
-                "action": "whatsapp_voice_call",
-                "recipient": target_contact,
-                "message": msg_res,
-                "call_state": call_state_machine.state,
-                "verified": True,
-                "execution_target": EXECUTION_TARGET_NAME,
-                "latency_ms": round((time.time() - t0) * 1000, 2)
-            }
-        except Exception as err:
-            call_state_machine.transition_to(STATE_FAILED)
-            return {"success": False, "action": "whatsapp_voice_call", "message": f"Voice call failed: {err}", "execution_target": EXECUTION_TARGET_NAME}
-
-    def execute_video_call(self, recipient: str) -> Dict[str, Any]:
-        """Initiates WhatsApp Video Call on Installed Desktop App."""
-        t0 = time.time()
-        amb_check = resolve_contact_ambiguity(recipient)
-        if amb_check.get("status") == "AMBIGUOUS_CONTACT":
-            return {
-                "success": False,
-                "action": "whatsapp_video_call",
-                "message": amb_check["message"],
-                "requires_clarification": True,
-                "execution_target": EXECUTION_TARGET_NAME
-            }
-
-        target_contact = amb_check.get("contact", recipient)
-        focused, focus_msg = focus_installed_whatsapp_desktop()
-        if not focused:
-            return {"success": False, "action": "whatsapp_video_call", "message": focus_msg, "execution_target": EXECUTION_TARGET_NAME}
-
-        try:
-            import pyautogui
-            pyautogui.hotkey("ctrl", "f")
-            time.sleep(0.4)
-            pyautogui.write(target_contact, interval=0.03)
-            time.sleep(0.8)
-            pyautogui.press("enter")
-            time.sleep(0.6)
-
-            call_state_machine.transition_to(STATE_OUTGOING, contact=target_contact, call_type="video")
-            time.sleep(0.5)
-            call_state_machine.transition_to(STATE_RINGING, contact=target_contact, call_type="video")
-
-            msg_res = f"WhatsApp video call initiated to {target_contact} via installed Windows WhatsApp Desktop."
-            return {
-                "success": True,
-                "action": "whatsapp_video_call",
-                "recipient": target_contact,
-                "message": msg_res,
-                "call_state": call_state_machine.state,
-                "verified": True,
-                "execution_target": EXECUTION_TARGET_NAME,
-                "latency_ms": round((time.time() - t0) * 1000, 2)
-            }
-        except Exception as err:
-            call_state_machine.transition_to(STATE_FAILED)
-            return {"success": False, "action": "whatsapp_video_call", "message": f"Video call failed: {err}", "execution_target": EXECUTION_TARGET_NAME}
-
-    def execute_answer_call(self) -> Dict[str, Any]:
-        """Answers incoming WhatsApp call if pending."""
-        if call_state_machine.state not in [STATE_INCOMING, STATE_RINGING]:
-            return {
-                "success": False,
-                "action": "whatsapp_answer_call",
-                "message": "Koi incoming WhatsApp call nahi hai.",
-                "verified": False,
-                "execution_target": EXECUTION_TARGET_NAME
-            }
-
-        focus_installed_whatsapp_desktop()
-        call_state_machine.transition_to(STATE_ACTIVE)
-        return {
-            "success": True,
-            "action": "whatsapp_answer_call",
-            "message": "Call receive kar liya.",
-            "call_state": STATE_ACTIVE,
-            "verified": True,
-            "execution_target": EXECUTION_TARGET_NAME
-        }
-
-    def execute_decline_call(self) -> Dict[str, Any]:
-        """Declines/rejects incoming WhatsApp call if pending."""
-        if call_state_machine.state not in [STATE_INCOMING, STATE_RINGING]:
-            return {
-                "success": False,
-                "action": "whatsapp_decline_call",
-                "message": "Koi incoming WhatsApp call nahi hai.",
-                "verified": False,
-                "execution_target": EXECUTION_TARGET_NAME
-            }
-
-        focus_installed_whatsapp_desktop()
-        call_state_machine.transition_to(STATE_ENDED)
-        return {
-            "success": True,
-            "action": "whatsapp_decline_call",
-            "message": "Incoming call reject kar diya.",
-            "call_state": STATE_ENDED,
-            "verified": True,
-            "execution_target": EXECUTION_TARGET_NAME
-        }
-
-    def execute_end_call(self) -> Dict[str, Any]:
-        """Ends current active WhatsApp call if present."""
-        if call_state_machine.state not in [STATE_ACTIVE, STATE_OUTGOING, STATE_RINGING, STATE_CONNECTING]:
-            return {
-                "success": False,
-                "action": "whatsapp_end_call",
-                "message": "Koi active WhatsApp call nahi hai.",
-                "verified": False,
-                "execution_target": EXECUTION_TARGET_NAME
-            }
-
-        focus_installed_whatsapp_desktop()
-        call_state_machine.transition_to(STATE_ENDED)
-        return {
-            "success": True,
-            "action": "whatsapp_end_call",
-            "message": "WhatsApp call end kar diya.",
-            "call_state": STATE_ENDED,
-            "verified": True,
-            "execution_target": EXECUTION_TARGET_NAME
-        }
+    def execute_end_call(self):
+        from actions.whatsapp_desktop_dom import desktop_action
+        result = desktop_action("end_call")
+        if result.get("success") and result.get("verified"):
+            call_state_machine.transition_to(STATE_ENDED)
+        return result
 
     def detect_incoming_call(self) -> Dict[str, Any]:
         """Detects incoming WhatsApp call events and deduplicates notifications."""

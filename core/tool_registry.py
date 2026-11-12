@@ -3,6 +3,7 @@
 
 import time
 import inspect
+from core.tool_invocation import invoke_tool
 import logging
 import traceback
 from dataclasses import dataclass, field
@@ -38,8 +39,8 @@ class ToolResult:
     def __str__(self) -> str:
         if self.success:
             verif_str = " (Verified)" if self.verification.get("verified") else ""
-            return f"[{self.tool}] ✅ {self.message}{verif_str}"
-        return f"[{self.tool}] ❌ Error: {self.error or self.message}"
+            return f"[{self.tool}] [OK] {self.message}{verif_str}"
+        return f"[{self.tool}] [ERROR]: {self.error or self.message}"
 
 
 class Tool:
@@ -80,8 +81,14 @@ class Tool:
             self._cached_accepts_parameters = None
             return
         try:
-            sig = inspect.signature(self.execute_func)
-            self._cached_accepts_parameters = "parameters" in sig.parameters
+            fn = self.execute_func
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            sig = inspect.signature(fn)
+            self._cached_accepts_parameters = (
+                "parameters" in sig.parameters or
+                any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+            )
         except (ValueError, TypeError):
             # Built-in or wrapped callable without introspectable signature
             self._cached_accepts_parameters = None
@@ -91,23 +98,7 @@ class Tool:
         logger.info(f"Executing tool '{self.name}' with args: {args}")
 
         try:
-            # 1. Execute tool handler using cached signature strategy
-            if self._cached_accepts_parameters is True:
-                raw_output = self.execute_func(parameters=args, player=player, **kwargs)
-            elif self._cached_accepts_parameters is False:
-                try:
-                    raw_output = self.execute_func(**args)
-                except (TypeError, AttributeError):
-                    try:
-                        raw_output = self.execute_func(args)
-                    except (TypeError, AttributeError):
-                        raw_output = self.execute_func(parameters=args, player=player, **kwargs)
-            else:
-                # Signature unknown — fall back to trial execution
-                try:
-                    raw_output = self.execute_func(parameters=args, player=player, **kwargs)
-                except Exception:
-                    raw_output = self.execute_func(args)
+            raw_output = invoke_tool(self.execute_func, args, player=player, **kwargs)
 
             exec_time = (time.time() - start_time) * 1000
 
@@ -122,7 +113,7 @@ class Tool:
             data = raw_output if isinstance(raw_output, dict) else {"output": raw_output}
 
             # 2. Run post-execution verification if defined
-            verif_res = {"verified": True}
+            verif_res = {"verified": bool(raw_output.get("verified", raw_output.get("success", True)))} if isinstance(raw_output, dict) else {"verified": True}
             if self.verify_func:
                 try:
                     verif_res = self.verify_func(args=args, output=raw_output)
@@ -130,7 +121,7 @@ class Tool:
                     verif_res = {"verified": False, "reason": f"Verification function error: {ve}"}
 
             if isinstance(raw_output, dict) and "success" in raw_output:
-                success = bool(raw_output["success"]) and verif_res.get("verified", True)
+                success = bool(raw_output["success"]) and (not self.verify_func or verif_res.get("verified", True))
             else:
                 success = verif_res.get("verified", True)
 
@@ -140,10 +131,10 @@ class Tool:
             return ToolResult(
                 success=success,
                 tool=self.name,
-                message=msg if success else f"Execution finished but verification failed: {verif_res.get('reason')}",
+                message=msg if success or not verif_res.get("reason") else f"{msg} Verification: {verif_res['reason']}",
                 data=data,
                 verification=verif_res,
-                error=None if success else verif_res.get("reason"),
+                error=None if success else (verif_res.get("reason") or msg),
                 execution_time_ms=exec_time,
             )
 
@@ -212,7 +203,7 @@ class ToolRegistry:
                 return False, f"Missing required parameter '{req}' for tool '{tool.name}'."
         return True, None
 
-    def execute_tool(self, name: str, args: Dict[str, Any], player: Any = None, **kwargs) -> ToolResult:
+    def execute_tool(self, name: str, args: Any, player: Any = None, **kwargs) -> ToolResult:
         tool = self.get_tool(name)
         if not tool:
             return ToolResult(
@@ -221,6 +212,31 @@ class ToolRegistry:
                 message=f"Tool '{name}' is not registered in ToolRegistry.",
                 error=f"Unregistered tool: '{name}'"
             )
+
+        # Normalize args if string or non-dict was passed
+        if isinstance(args, str):
+            if name in ["open_app", "open_application"]:
+                args = {"app_name": args.strip(" '\"`.,")}
+            elif name == "web_search":
+                args = {"query": args}
+            elif name == "fetch_webpage":
+                args = {"url": args}
+            else:
+                args = {"query": args}
+        elif not isinstance(args, dict):
+            args = {}
+        else:
+            args = dict(args)
+
+        # Tool-specific parameter alias resolution (e.g. target/app/name -> app_name for open_app)
+        if name in ["open_app", "open_application"]:
+            if "app_name" not in args or not str(args.get("app_name", "")).strip():
+                for alias in ["target", "app", "name", "application", "query"]:
+                    if alias in args and args[alias]:
+                        args["app_name"] = str(args[alias]).strip(" '\"`.,")
+                        break
+            if "app_name" in args and isinstance(args["app_name"], str):
+                args["app_name"] = args["app_name"].strip(" '\"`.,")
 
         # Parameter validation
         valid, val_err = self.validate_parameters(tool, args)
@@ -233,7 +249,12 @@ class ToolRegistry:
             )
 
         # Security check
-        authorized, sec_err = self.security_manager.validate_and_authorize(name, args, player=player)
+        authorized, sec_err = self.security_manager.validate_and_authorize(
+            name,
+            args,
+            player=player,
+            risk_level=tool.risk_level,
+        )
         if not authorized:
             return ToolResult(
                 success=False,

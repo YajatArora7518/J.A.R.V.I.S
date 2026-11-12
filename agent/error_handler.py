@@ -1,8 +1,13 @@
 import json
 import re
 import sys
+import time
+import logging
 from pathlib import Path
 from enum import Enum
+from typing import Dict, Any, Optional
+
+logger = logging.getLogger("JARVIS.ErrorHandler")
 
 
 def get_base_dir() -> Path:
@@ -13,6 +18,87 @@ def get_base_dir() -> Path:
 
 BASE_DIR        = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
+
+# Natural error messages for user-facing responses
+NATURAL_ERROR_MESSAGES: Dict[str, str] = {
+    "ConnectionError": "Boss, network connection problem hai. Internet check karo.",
+    "TimeoutError": "Boss, response aane mein zyada time lag raha hai. Fir se try karta hoon.",
+    "FileNotFoundError": "Boss, wo file mil nahi rahi. Path check karo.",
+    "PermissionError": "Boss, permission denied. Admin access required ho sakta hai.",
+    "ModuleNotFoundError": "Boss, ek required library install nahi hai.",
+    "json.JSONDecodeError": "Boss, response format mein problem thi. Fir se try karta hoon.",
+    "WebSocketError": "Boss, Gemini connection drop ho gaya. Reconnect kar raha hoon.",
+    "OllamaError": "Boss, local AI server respond nahi kar raha. Ollama running check karo.",
+    "ChromeError": "Boss, Chrome response nahi de raha. Chrome restart karna padega.",
+    "default": "Boss, ek unexpected issue aaya hai. Working on a fix.",
+}
+
+
+class CircuitBreaker:
+    """Simple circuit breaker to prevent repeated failing calls."""
+
+    def __init__(self, failure_threshold: int = 5, recovery_timeout: float = 60.0):
+        self._failure_count: int = 0
+        self._failure_threshold: int = failure_threshold
+        self._recovery_timeout: float = recovery_timeout
+        self._last_failure_time: float = 0.0
+        self._state: str = "CLOSED"  # CLOSED | OPEN | HALF_OPEN
+
+    def record_failure(self):
+        self._failure_count += 1
+        self._last_failure_time = time.time()
+        if self._failure_count >= self._failure_threshold:
+            self._state = "OPEN"
+            logger.warning(f"[CircuitBreaker] OPEN — {self._failure_count} consecutive failures.")
+
+    def record_success(self):
+        self._failure_count = 0
+        self._state = "CLOSED"
+
+    def is_open(self) -> bool:
+        if self._state == "OPEN":
+            if time.time() - self._last_failure_time > self._recovery_timeout:
+                self._state = "HALF_OPEN"
+                logger.info("[CircuitBreaker] HALF_OPEN — testing recovery.")
+                return False
+            return True
+        return False
+
+    def get_state(self) -> Dict[str, Any]:
+        return {
+            "state": self._state,
+            "failure_count": self._failure_count,
+            "last_failure": self._last_failure_time,
+        }
+
+
+# Global circuit breakers per subsystem
+_CIRCUIT_BREAKERS: Dict[str, CircuitBreaker] = {}
+
+def get_circuit_breaker(subsystem: str = "default") -> CircuitBreaker:
+    if subsystem not in _CIRCUIT_BREAKERS:
+        _CIRCUIT_BREAKERS[subsystem] = CircuitBreaker()
+    return _CIRCUIT_BREAKERS[subsystem]
+
+
+def get_natural_error_message(error: Exception) -> str:
+    """Convert a Python exception into a natural, user-friendly message."""
+    error_type = type(error).__name__
+    msg = NATURAL_ERROR_MESSAGES.get(error_type)
+    if msg:
+        return msg
+    error_str = str(error).lower()
+    if "connection" in error_str or "network" in error_str:
+        return NATURAL_ERROR_MESSAGES["ConnectionError"]
+    if "timeout" in error_str:
+        return NATURAL_ERROR_MESSAGES["TimeoutError"]
+    if "permission" in error_str:
+        return NATURAL_ERROR_MESSAGES["PermissionError"]
+    if "chrome" in error_str:
+        return NATURAL_ERROR_MESSAGES["ChromeError"]
+    if "ollama" in error_str:
+        return NATURAL_ERROR_MESSAGES["OllamaError"]
+    return NATURAL_ERROR_MESSAGES["default"]
 
 
 class ErrorDecision(Enum):
@@ -134,7 +220,7 @@ def generate_fix(step: dict, error: str, fix_suggestion: str) -> dict:
     import google.generativeai as genai
 
     genai.configure(api_key=_get_api_key())
-    model = genai.GenerativeModel(model_name="gemini-2.0-flash")
+    model = genai.GenerativeModel(model_name="gemini-3.5-flash-lite")
 
     prompt = f"""A task step failed. Generate a replacement step.
 

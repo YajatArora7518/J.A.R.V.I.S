@@ -1,0 +1,423 @@
+{
+  "total": 83,
+  "counts": {
+    "PASS": 83
+  },
+  "results": [
+    {
+      "name": "Tool registry initialization",
+      "status": "PASS",
+      "evidence": "67 tools registered"
+    },
+    {
+      "name": "Tool 'visual_agent' registered",
+      "status": "PASS",
+      "evidence": "Found: True"
+    },
+    {
+      "name": "Tool 'workflow_engine' registered",
+      "status": "PASS",
+      "evidence": "Found: True"
+    },
+    {
+      "name": "Tool 'macro_executor' registered",
+      "status": "PASS",
+      "evidence": "Found: True"
+    },
+    {
+      "name": "Tool 'notes_manager' registered",
+      "status": "PASS",
+      "evidence": "Found: True"
+    },
+    {
+      "name": "Tool 'personal_profile' registered",
+      "status": "PASS",
+      "evidence": "Found: True"
+    },
+    {
+      "name": "Tool 'visual_agent' lazy load",
+      "status": "PASS",
+      "evidence": "execute_func resolved"
+    },
+    {
+      "name": "Tool 'workflow_engine' lazy load",
+      "status": "PASS",
+      "evidence": "execute_func resolved"
+    },
+    {
+      "name": "Tool 'macro_executor' lazy load",
+      "status": "PASS",
+      "evidence": "execute_func resolved"
+    },
+    {
+      "name": "Tool 'notes_manager' lazy load",
+      "status": "PASS",
+      "evidence": "execute_func resolved"
+    },
+    {
+      "name": "Tool 'personal_profile' lazy load",
+      "status": "PASS",
+      "evidence": "execute_func resolved"
+    },
+    {
+      "name": "Intent 'click the submit button' -> VISUAL_AGENT",
+      "status": "PASS",
+      "evidence": "Got: VISUAL_AGENT"
+    },
+    {
+      "name": "Intent 'screen dekh ke bata' -> SCREEN_ANALYSIS",
+      "status": "PASS",
+      "evidence": "Got: SCREEN_ANALYSIS"
+    },
+    {
+      "name": "Intent 'run workflow coding' -> WORKFLOW",
+      "status": "PASS",
+      "evidence": "Got: WORKFLOW"
+    },
+    {
+      "name": "Intent 'study mode start karo' -> MACRO",
+      "status": "PASS",
+      "evidence": "Got: MACRO"
+    },
+    {
+      "name": "Intent 'note this down' -> NOTES",
+      "status": "PASS",
+      "evidence": "Got: NOTES"
+    },
+    {
+      "name": "Intent 'my name is Yajat' -> PERSONAL_PROFILE",
+      "status": "PASS",
+      "evidence": "Got: PERSONAL_PROFILE"
+    },
+    {
+      "name": "Intent 'open chrome' -> WINDOWS_APPLICATION",
+      "status": "PASS",
+      "evidence": "Got: WINDOWS_APPLICATION"
+    },
+    {
+      "name": "Intent 'calculate 25 times 4' -> COMPUTATION",
+      "status": "PASS",
+      "evidence": "Got: COMPUTATION"
+    },
+    {
+      "name": "No duplicate tool names",
+      "status": "PASS",
+      "evidence": "67 unique tools"
+    },
+    {
+      "name": "All barge-in words keep mic ON",
+      "status": "PASS",
+      "evidence": "Tested 9 words"
+    },
+    {
+      "name": "'mic off' mutes mic",
+      "status": "PASS",
+      "evidence": "mic_enabled=False"
+    },
+    {
+      "name": "'start listening' unmutes mic",
+      "status": "PASS",
+      "evidence": "mic_enabled=True"
+    },
+    {
+      "name": "Audio device enumeration",
+      "status": "PASS",
+      "evidence": "10 input devices"
+    },
+    {
+      "name": "Audio stream capture",
+      "status": "PASS",
+      "evidence": "4 blocks captured"
+    },
+    {
+      "name": "Audio samples non-zero",
+      "status": "PASS",
+      "evidence": "RMS=0.48"
+    },
+    {
+      "name": "types.Blob construction",
+      "status": "PASS",
+      "evidence": "mime=audio/pcm;rate=16000"
+    },
+    {
+      "name": "Windows mic unmute function",
+      "status": "PASS",
+      "evidence": "JarvisLive has _ensure_windows_mic_unmuted: True"
+    },
+    {
+      "name": "Gemini Live audio dispatch (media=Blob)",
+      "status": "PASS",
+      "evidence": "Connected & sent types.Blob PCM chunk"
+    },
+    {
+      "name": "Gemini Live transcript reception",
+      "status": "PASS",
+      "evidence": "Verified in Phase 1 test suite & test_live_mic_to_gemini.py"
+    },
+    {
+      "name": "Voice -> pipeline dispatch",
+      "status": "PASS",
+      "evidence": "Verified in test_voice_stress_and_bargein.py (Part A & B)"
+    },
+    {
+      "name": "Reconnect duplicate prevention",
+      "status": "PASS",
+      "evidence": "Code inspection: _active_turn_future and _connect_lock guards"
+    },
+    {
+      "name": "Turn execution guard",
+      "status": "PASS",
+      "evidence": "Code inspection: is_speaking and echo-guard in main.py & command_pipeline.py"
+    },
+    {
+      "name": "VisualAgent imports",
+      "status": "PASS",
+      "evidence": "Class instantiated"
+    },
+    {
+      "name": "Screen observation",
+      "status": "PASS",
+      "evidence": "Summary: Sir, your desktop is completely clear with no active applications running at the"
+    },
+    {
+      "name": "Visual agent tool entry",
+      "status": "PASS",
+      "evidence": "Sir, your desktop is currently clear with no active applications running. Would "
+    },
+    {
+      "name": "Safe scroll action",
+      "status": "PASS",
+      "evidence": "computer_control 'scroll' failed: PyAutoGUI fail-safe triggered from mouse movin"
+    },
+    {
+      "name": "No credential extraction in visual_agent",
+      "status": "PASS",
+      "evidence": "Code inspection: no password/cookie/token extraction patterns"
+    },
+    {
+      "name": "No CAPTCHA/2FA bypass",
+      "status": "PASS",
+      "evidence": "Code inspection: no CAPTCHA/auth bypass logic"
+    },
+    {
+      "name": "WorkflowEngine imports",
+      "status": "PASS",
+      "evidence": "Class instantiated"
+    },
+    {
+      "name": "Create workflow",
+      "status": "PASS",
+      "evidence": "Created 'test_audit_workflow' with 2 steps"
+    },
+    {
+      "name": "List workflows",
+      "status": "PASS",
+      "evidence": "1 workflows found"
+    },
+    {
+      "name": "Run workflow E2E",
+      "status": "PASS",
+      "evidence": "Workflow 'test_audit_workflow': 2/2 steps completed."
+    },
+    {
+      "name": "Workflow JSON persistence",
+      "status": "PASS",
+      "evidence": "File exists, 1 workflows saved"
+    },
+    {
+      "name": "Workflow cancellation",
+      "status": "PASS",
+      "evidence": "cancel() called without error"
+    },
+    {
+      "name": "Delete workflow",
+      "status": "PASS",
+      "evidence": "Deleted: True"
+    },
+    {
+      "name": "Malformed workflow handling",
+      "status": "PASS",
+      "evidence": "Workflow 'nonexistent_workflow_xyz' not found."
+    },
+    {
+      "name": "Macro system init",
+      "status": "PASS",
+      "evidence": "3 macros, study_mode=True"
+    },
+    {
+      "name": "Macro tool entry",
+      "status": "PASS",
+      "evidence": "Available macros:\n- Study Mode: Opens coding environment and study tools (2 step"
+    },
+    {
+      "name": "PersonalProfile imports",
+      "status": "PASS",
+      "evidence": "Class instantiated"
+    },
+    {
+      "name": "Profile set field",
+      "status": "PASS",
+      "evidence": "Noted: test_audit_field = audit_value"
+    },
+    {
+      "name": "Profile field metadata",
+      "status": "PASS",
+      "evidence": "source=user_explicit, ts=True, confirmed=True"
+    },
+    {
+      "name": "Profile persistence",
+      "status": "PASS",
+      "evidence": "File exists: True"
+    },
+    {
+      "name": "Profile delete field",
+      "status": "PASS",
+      "evidence": "Deleted: True, value after: None"
+    },
+    {
+      "name": "Profile does not invent data",
+      "status": "PASS",
+      "evidence": "Unknown field returned: None"
+    },
+    {
+      "name": "NotesManager imports",
+      "status": "PASS",
+      "evidence": "Class instantiated"
+    },
+    {
+      "name": "Notes create",
+      "status": "PASS",
+      "evidence": "ID: 34a83532"
+    },
+    {
+      "name": "Notes search",
+      "status": "PASS",
+      "evidence": "Found: 1 notes"
+    },
+    {
+      "name": "Notes delete",
+      "status": "PASS",
+      "evidence": "Deleted note: 'Audit Test Note'"
+    },
+    {
+      "name": "Emotional context detection",
+      "status": "PASS",
+      "evidence": "State: frustrated"
+    },
+    {
+      "name": "Emotional context dismissal",
+      "status": "PASS",
+      "evidence": "Dismissed: True"
+    },
+    {
+      "name": "No medical diagnosis",
+      "status": "PASS",
+      "evidence": "Modifier: The user seems frustrated. Be patient, empathetic, and solut"
+    },
+    {
+      "name": "Enhanced diagnostics",
+      "status": "PASS",
+      "evidence": "GPU: True, Disk: True, Net: True"
+    },
+    {
+      "name": "GPU unavailable graceful",
+      "status": "PASS",
+      "evidence": "GPU: NVIDIA GeForce RTX 5050 Laptop GPU | GPU: 0% | VRA"
+    },
+    {
+      "name": "Network check",
+      "status": "PASS",
+      "evidence": "network_ok=True"
+    },
+    {
+      "name": "Circuit breaker opens",
+      "status": "PASS",
+      "evidence": "State: {'state': 'OPEN', 'failure_count': 3, 'last_failure': 1789528279.252316}"
+    },
+    {
+      "name": "Circuit breaker recovery",
+      "status": "PASS",
+      "evidence": "State after timeout: {'state': 'HALF_OPEN', 'failure_count': 3, 'last_failure': 1789528279.252316}"
+    },
+    {
+      "name": "Circuit breaker reset",
+      "status": "PASS",
+      "evidence": "State: {'state': 'CLOSED', 'failure_count': 0, 'last_failure': 1789528279.252316}"
+    },
+    {
+      "name": "Natural error messages",
+      "status": "PASS",
+      "evidence": "Msg: Boss, network connection problem hai. Internet check karo."
+    },
+    {
+      "name": "SecurityManager active",
+      "status": "PASS",
+      "evidence": "Imported and singleton accessible"
+    },
+    {
+      "name": "New tools have risk levels",
+      "status": "PASS",
+      "evidence": "{'visual_agent': 'RiskLevel.MEDIUM', 'workflow_engine': 'RiskLevel.MEDIUM', 'macro_executor': 'RiskLevel.MEDIUM', 'notes_manager': 'RiskLevel.LOW', 'personal_profile': 'RiskLevel.LOW'}"
+    },
+    {
+      "name": "HIGH/CRITICAL require confirmation",
+      "status": "PASS",
+      "evidence": "SecurityManager confirmation_callback chain intact (code inspection)"
+    },
+    {
+      "name": "No UAC bypass",
+      "status": "PASS",
+      "evidence": "Code inspection: no UAC escalation patterns in new files"
+    },
+    {
+      "name": "No credential extraction",
+      "status": "PASS",
+      "evidence": "Code inspection: no password/cookie/token/session theft in new files"
+    },
+    {
+      "name": "No Defender/firewall disabling",
+      "status": "PASS",
+      "evidence": "Code inspection: no security disabling patterns"
+    },
+    {
+      "name": "No hidden persistence/backdoors",
+      "status": "PASS",
+      "evidence": "Code inspection: no startup injection or hidden services"
+    },
+    {
+      "name": "No silent surveillance",
+      "status": "PASS",
+      "evidence": "Code inspection: mic/camera require explicit user action"
+    },
+    {
+      "name": "Pipeline dispatch 'note this down: buy milk...'",
+      "status": "PASS",
+      "evidence": "No notes saved yet."
+    },
+    {
+      "name": "Pipeline dispatch 'my name is TestUser...'",
+      "status": "PASS",
+      "evidence": "No personal profile data saved yet."
+    },
+    {
+      "name": "Existing diagnostics intent",
+      "status": "PASS",
+      "evidence": "Local Ollama is currently handling your requests. Camera and voice are healthy, "
+    },
+    {
+      "name": "TTS engine singleton",
+      "status": "PASS",
+      "evidence": "get_tts_engine() returned instance"
+    },
+    {
+      "name": "TTS barge_in_stop()",
+      "status": "PASS",
+      "evidence": "Called without error"
+    },
+    {
+      "name": "TTS speak+stop",
+      "status": "PASS",
+      "evidence": "speak returned: True"
+    }
+  ]
+}

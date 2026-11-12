@@ -47,38 +47,54 @@ def _run_generated_code(description: str, speak: Callable | None = None) -> str:
         except Exception:
             pass
 
-    genai.configure(api_key=_get_api_key())
-    model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
-        system_instruction=(
-            "You are an expert Python developer. "
-            "Write clean, complete, working Python code. "
-            "Use standard library + common packages. "
-            "Install missing packages with subprocess + pip if needed. "
-            "Return ONLY the Python code. No explanation, no markdown, no backticks.\n\n"
-            f"SYSTEM PATHS:\n"
-            f"  Desktop   = r'{desktop}'\n"
-            f"  Downloads = r'{downloads}'\n"
-            f"  Documents = r'{documents}'\n"
-            f"  Home      = r'{home}'\n"
+    # 1. 100% Local AI Code Generation via Ollama
+    import core.ai_policy as ai_policy
+    if not ai_policy.is_cloud_ai_allowed():
+        try:
+            from core.local_ai_provider import get_local_ai_provider
+            provider = get_local_ai_provider()
+            code_prompt = f"Write Python code to accomplish this task:\n\n{description}\nReturn ONLY executable Python code, no markdown, no backticks."
+            code = provider.chat(code_prompt, system="You are an expert Python developer.")
+        except Exception:
+            ai_policy.assert_cloud_ai_allowed("Gemini Code Runner")
+            code = ""
+    else:
+        genai.configure(api_key=_get_api_key())
+        model = genai.GenerativeModel(
+            model_name="gemini-2.5-flash",
+            system_instruction=(
+                "You are an expert Python developer. "
+                "Write clean, complete, working Python code. "
+                "Use standard library + common packages. "
+                "Install missing packages with subprocess + pip if needed. "
+                "Return ONLY the Python code. No explanation, no markdown, no backticks.\n\n"
+                f"SYSTEM PATHS:\n"
+                f"  Desktop   = r'{desktop}'\n"
+                f"  Downloads = r'{downloads}'\n"
+                f"  Documents = r'{documents}'\n"
+                f"  Home      = r'{home}'\n"
+            )
         )
-    )
+        try:
+            response = model.generate_content(
+                f"Write Python code to accomplish this task:\n\n{description}"
+            )
+            code = response.text.strip()
+        except Exception as ge:
+            print(f"[Executor] Gemini code generation failed: {ge}")
+            code = ""
+
+    code = re.sub(r"```(?:python)?", "", code).strip().rstrip("`").strip()
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".py", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(code)
+        tmp_path = f.name
+
+    print(f"[Executor] 🐍 Running generated code: {tmp_path}")
 
     try:
-        response = model.generate_content(
-            f"Write Python code to accomplish this task:\n\n{description}"
-        )
-        code = response.text.strip()
-        code = re.sub(r"```(?:python)?", "", code).strip().rstrip("`").strip()
-
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False, encoding="utf-8"
-        ) as f:
-            f.write(code)
-            tmp_path = f.name
-
-        print(f"[Executor] 🐍 Running generated code: {tmp_path}")
-
         result = subprocess.run(
             [sys.executable, tmp_path],
             capture_output=True, text=True,
@@ -173,6 +189,17 @@ def _translate_to_goal_language(content: str, goal: str) -> str:
         return content
 
 def _call_tool(tool: str, parameters: dict, speak: Callable | None) -> str:
+    from core.tool_registry import default_tool_registry
+    from core.register_tools import initialize_all_tools
+
+    if not default_tool_registry.has_tool("open_app"):
+        initialize_all_tools()
+
+    if tool != "generated_code" and default_tool_registry.has_tool(tool):
+        result = default_tool_registry.execute_tool(tool, parameters)
+        if not result.success:
+            raise RuntimeError(result.error or result.message)
+        return result.message
 
     if tool == "open_app":
         from actions.open_app import open_app
@@ -248,8 +275,7 @@ def _call_tool(tool: str, parameters: dict, speak: Callable | None) -> str:
         return flight_finder(parameters=parameters, player=None, speak=speak) or "Done."
 
     else:
-        print(f"[Executor] ⚠️ Unknown tool '{tool}' — falling back to generated_code")
-        return _run_generated_code(f"Accomplish this task: {parameters}", speak=speak)
+        raise ValueError(f"Unknown tool '{tool}'. Generated code requires an explicit generated_code step.")
 
 class AgentExecutor:
 

@@ -48,6 +48,38 @@ try:
     _HAS_WEBENGINE = True
 except ImportError:
     print("[UI] PyQt6-WebEngine not available - falling back to 2D HUD Canvas")
+    class _DummySettings:
+        class WebAttribute:
+            WebGLEnabled = 0
+            Accelerated2dCanvasEnabled = 0
+            LocalContentCanAccessRemoteUrls = 0
+            JavascriptEnabled = 0
+            LocalContentCanAccessFileUrls = 0
+        def setAttribute(self, *args, **kwargs):
+            pass
+    QWebEngineSettings = _DummySettings
+    class QWebEnginePage(QObject):
+        def __init__(self, parent=None):
+            super().__init__(parent)
+        def setBackgroundColor(self, *args):
+            pass
+        def runJavaScript(self, *args, **kwargs):
+            pass
+    class QWebEngineView(QWidget):
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            self._page = QWebEnginePage(self)
+            self._settings = _DummySettings()
+        def setPage(self, page):
+            self._page = page
+        def page(self):
+            return self._page
+        def settings(self):
+            return self._settings
+        def setUrl(self, *args):
+            pass
+        def load(self, *args):
+            pass
 
 def _base_dir() -> Path:
     if getattr(sys, "frozen", False):
@@ -134,6 +166,10 @@ class _SysMetrics:
             except Exception:
                 pass
             time.sleep(1.5)
+
+    def stop(self):
+        """Signal the background metrics thread to stop."""
+        self._running = False
 
     def _update(self):
         cpu  = psutil.cpu_percent(interval=None)
@@ -497,6 +533,14 @@ class HoloBridge(QObject):
         if hasattr(self._win, "_toggle_mute"):
             self._win._toggle_mute()
 
+    @pyqtSlot()
+    def listenNow(self):
+        callback = getattr(self._win, 'on_voice_wake', None)
+        if callback:
+            callback()
+        elif hasattr(self._win, '_on_log_received'):
+            self._win._on_log_received('SYS: Voice connection abhi ready nahi hai.')
+
     @pyqtSlot(bool)
     def set_muted(self, muted: bool):
         if hasattr(self._win, "set_muted"):
@@ -536,6 +580,18 @@ class HoloBridge(QObject):
             self._win._handle_command(cmd)
 
 
+class _ConsoleCapturePage(QWebEnginePage):
+    """Custom WebEnginePage that routes JS console messages to Python logger."""
+    def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
+        try:
+            lvl_int = level.value if hasattr(level, 'value') else int(level)
+        except Exception:
+            lvl_int = 0
+        lvl = {0: "INFO", 1: "WARN", 2: "ERROR"}.get(lvl_int, "?")
+        short_src = sourceID.rsplit("/", 1)[-1] if sourceID else ""
+        logger.warning("[WebEngine JS %s] %s:%s  %s", lvl, short_src, lineNumber, message)
+
+
 class JARVIS3DCore(QWidget):
     """Wraps QWebEngineView to render Three.js 3D AI Core."""
 
@@ -557,6 +613,9 @@ class JARVIS3DCore(QWidget):
         layout.setSpacing(0)
 
         self._web = QWebEngineView(self)
+        # Use custom page to capture JS console output
+        self._console_page = _ConsoleCapturePage(self._web)
+        self._web.setPage(self._console_page)
         settings = self._web.settings()
         settings.setAttribute(QWebEngineSettings.WebAttribute.WebGLEnabled, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.Accelerated2dCanvasEnabled, True)
@@ -602,6 +661,53 @@ class JARVIS3DCore(QWidget):
             for js in self._pending_calls:
                 self._web.page().runJavaScript(js)
             self._pending_calls.clear()
+            if os.environ.get("JARVIS_DIAG_CAPTURE") == "1":
+                QTimer.singleShot(4000, self._perform_diag_capture)
+
+    def _perform_diag_capture(self):
+        try:
+            import os, time, json, hashlib
+            pid = os.getpid()
+            start_ts = time.strftime("%Y-%m-%d %H:%M:%S")
+            html_p = BASE_DIR / "assets" / "jarvis_holographic_ui.html"
+            html_mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(html_p.stat().st_mtime))
+            html_hash = hashlib.sha256(html_p.read_bytes()).hexdigest()
+
+            print("\n" + "="*70, flush=True)
+            print("=== JARVIS LIVE RUNTIME VERIFICATION DIAGNOSTICS ===", flush=True)
+            print(f"Process ID: {pid}", flush=True)
+            print(f"Timestamp: {start_ts}", flush=True)
+            print(f"HTML Path: {html_p.resolve()}", flush=True)
+            print(f"HTML Mtime: {html_mtime}", flush=True)
+            print(f"HTML SHA256: {html_hash}", flush=True)
+            print("="*70, flush=True)
+
+            out_img_path = BASE_DIR / "live_jarvis_window.png"
+            pixmap = self._web.grab()
+            pixmap.save(str(out_img_path))
+            print(f"[DIAG] Saved live window capture: {out_img_path.resolve()} (Size: {pixmap.width()}x{pixmap.height()})", flush=True)
+
+            def _on_diag_result(res):
+                print("[DIAG] Live JS Diagnostics:", flush=True)
+                print(json.dumps(res, indent=2), flush=True)
+                diag_out_path = BASE_DIR / "live_runtime_diag.json"
+                with open(diag_out_path, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "pid": pid,
+                        "timestamp": start_ts,
+                        "html_path": str(html_p.resolve()),
+                        "html_mtime": html_mtime,
+                        "html_hash": html_hash,
+                        "screenshot_path": str(out_img_path.resolve()),
+                        "screenshot_size": [pixmap.width(), pixmap.height()],
+                        "js_diagnostics": res
+                    }, f, indent=2)
+                print(f"[DIAG] Wrote live_runtime_diag.json successfully", flush=True)
+                print("="*70 + "\n", flush=True)
+
+            self._web.page().runJavaScript("window._getDiagnostics ? window._getDiagnostics() : null", _on_diag_result)
+        except Exception as ex:
+            print(f"[DIAG] Capture error: {ex}", flush=True)
 
     def _run_js(self, js: str):
         if self._page_ready:
@@ -711,6 +817,10 @@ class JARVIS3DCore(QWidget):
     def setCollegeInfo(self, text: str):
         txt_js = json.dumps(str(text or ""))
         self._run_js(f'window.JARVIS3DCore && window.JARVIS3DCore.setCollegeInfo && window.JARVIS3DCore.setCollegeInfo({txt_js})')
+
+    def setTasks(self, tasks):
+        payload = json.dumps(tasks, ensure_ascii=True)
+        self._run_js(f'window.JARVIS3DCore && window.JARVIS3DCore.setTasks({payload})')
 
     def setMemoryStats(self, items: int, topics: int, updated: str):
         up_js = json.dumps(str(updated or ""))
@@ -822,7 +932,7 @@ class JarvisChatPanel(QWidget):
         send_btn.clicked.connect(self._handle_send)
         self.input_field.returnPressed.connect(self._handle_send)
 
-        self.append_message("JARVIS", "Hello sir, how may I assist you today?")
+        self.append_message("JARVIS", "Haan, bolo. Kya karna hai?")
 
     def _handle_send(self):
         txt = self.input_field.text().strip()
@@ -1180,6 +1290,9 @@ class MainWindow(QMainWindow):
     _audio_sig = pyqtSignal(float)
     _action_sig = pyqtSignal(str)
     _security_sig = pyqtSignal(str, object, object)
+    _capture_sig = pyqtSignal(object)
+    _camera_sig = pyqtSignal(bool)
+    _model_studio_sig = pyqtSignal(str, object)
 
     def __init__(self, face_path: str = "", parent=None):
         super().__init__()
@@ -1191,6 +1304,7 @@ class MainWindow(QMainWindow):
         self.move((screen.width() - _DEFAULT_W) // 2, (screen.height() - _DEFAULT_H) // 2)
 
         self.on_text_command  = None
+        self.on_voice_wake = None
         self._muted           = False
         self._current_file: str | None = None
         self._current_state   = "READY"
@@ -1203,6 +1317,9 @@ class MainWindow(QMainWindow):
         self._audio_sig.connect(self._apply_audio_level)
         self._action_sig.connect(self._add_action_entry)
         self._security_sig.connect(self._on_security_confirm_slot)
+        self._capture_sig.connect(self._capture_analysis_frame)
+        self._camera_sig.connect(self._apply_camera_enabled)
+        self._model_studio_sig.connect(self._show_model_studio)
 
         try:
             from core.security import default_security_manager
@@ -1252,6 +1369,11 @@ class MainWindow(QMainWindow):
 
         # System Timers
 
+        # Hand Tracker Worker (LAZY — not started on boot to avoid webcam blocking startup)
+        # Call self._start_hand_tracker() when camera/hand features are needed
+        self._hand_worker = None
+        self._tools_sent_to_hud = False  # Flag: send tools list to HUD only once
+
         # System Timers
         self._clock_tmr = QTimer(self)
         self._clock_tmr.timeout.connect(self._tick_clock)
@@ -1262,11 +1384,6 @@ class MainWindow(QMainWindow):
         self._metric_tmr.timeout.connect(self._update_metrics)
         self._metric_tmr.start(1500)
         self._update_metrics()
-
-        # Start Hand Tracker Worker
-        self._hand_worker = HandTrackerWorker(self)
-        self._hand_worker.hand_signal.connect(self._on_hand_signal)
-        self._hand_worker.start()
 
         # Check API Key configuration
         self._overlay: SetupOverlay | None = None
@@ -1741,6 +1858,7 @@ class MainWindow(QMainWindow):
             ("🖱️ Mouse", lambda: self._dispatch_command("Click middle of screen")),
             ("⌨️ Keyboard", lambda: self._dispatch_command("Type Hello World")),
             ("📹 Camera", self._act_camera),
+            ("🖐 Hand tracking", self._act_hand_tracking),
             ("🧠 Memory", self._show_memory_search),
             ("🎓 College", self._act_college),
             ("👁️ Vision", lambda: self._dispatch_command("Look at my screen")),
@@ -1873,9 +1991,15 @@ class MainWindow(QMainWindow):
             for cat, items in m.items():
                 if isinstance(items, dict):
                     count += len(items)
-            self.mem_items_lbl.setText(f"Remembered Items: {count}")
-            self.mem_topics_lbl.setText(f"Topics: {len(m)} Categories")
-            self.mem_updated_lbl.setText(f"Last Updated: {time.strftime('%I:%M %p')}")
+            from memory.memory_manager import MEMORY_PATH
+            updated = time.strftime('%I:%M %p', time.localtime(MEMORY_PATH.stat().st_mtime)) if MEMORY_PATH.exists() else "No saved memory"
+            for name, text in (("mem_items_lbl", f"Remembered Items: {count}"),
+                               ("mem_topics_lbl", f"Topics: {len(m)} Categories"),
+                               ("mem_updated_lbl", f"Last Updated: {updated}")):
+                if getattr(self, name, None) is not None:
+                    getattr(self, name).setText(text)
+            if hasattr(self, "hud") and hasattr(self.hud, "setMemoryStats"):
+                self.hud.setMemoryStats(count, len(m), updated)
         except Exception:
             pass
 
@@ -1948,6 +2072,29 @@ class MainWindow(QMainWindow):
     def _act_search(self):
         self._dispatch_command("Search Google for latest tech news")
 
+    def _capture_analysis_frame(self, request):
+        """Capture on demand after letting the user's page show behind JARVIS."""
+        was_active = self.isActiveWindow() and self.isVisible()
+        maximized = self.isMaximized()
+        if was_active:
+            self.hide()
+        def finish():
+            try:
+                if not request.get('cancelled'):
+                    from actions.screen_processor import _capture_screenshot
+                    import pygetwindow as gw
+                    win = gw.getActiveWindow()
+                    request['title'] = (win.title or '') if win else ''
+                    request['image'] = _capture_screenshot()
+            except Exception as exc:
+                request['error'] = str(exc)
+            finally:
+                if was_active:
+                    self.showMaximized() if maximized else self.show()
+                    self.activateWindow()
+                request['event'].set()
+        QTimer.singleShot(250 if was_active else 0, finish)
+
     def _act_screenshot(self):
         try:
             ss_dir = BASE_DIR / "assets" / "screenshots"
@@ -1963,13 +2110,28 @@ class MainWindow(QMainWindow):
             self._on_log_received(f"ERR: Screenshot failed: {ex}")
 
     def _act_camera(self):
-        active = getattr(self, "_cam_active", False)
-        self._cam_active = not active
+        self._dispatch_command('camera off' if getattr(self, '_cam_active', False) else 'camera on')
+
+    def _apply_camera_enabled(self, enabled):
+        self._cam_active = bool(enabled)
         if hasattr(self, "hud") and hasattr(self.hud, "setCameraActive"):
             self.hud.setCameraActive(self._cam_active)
-        status_txt = "Camera turned ON" if self._cam_active else "Camera turned OFF"
-        self._add_action_entry(status_txt)
-        self._on_log_received(f"SYS: {status_txt}")
+        if not self._cam_active and getattr(self, '_hand_worker', None) is not None:
+            self._hand_worker.stop()
+
+    def _act_hand_tracking(self):
+        # Gesture tracking holds a stream; on-demand access only checks a frame.
+        worker = getattr(self, '_hand_worker', None)
+        if worker is not None and worker.isRunning():
+            worker.stop()
+            self._on_log_received('SYS: Hand tracking stop requested.')
+            return
+        from agent.awareness.permissions import permission_manager, privacy_mode_manager
+        if not permission_manager.is_granted('CAMERA_ACCESS') or privacy_mode_manager.is_privacy_mode_active():
+            self._on_log_received('SYS: Pehle camera on bolo aur privacy pause hatao, phir hand tracking start karo.')
+            return
+        self._hand_worker = None
+        self._start_hand_tracker()
 
     def _act_college(self):
         self._dispatch_command("What is my schedule for today?")
@@ -2036,12 +2198,16 @@ class MainWindow(QMainWindow):
         if hasattr(self, "telemetry_hud") and hasattr(self.telemetry_hud, "setTime"):
             self.telemetry_hud.setTime(t_str, d_str)
 
-    def _send_tools_to_hud(self):
+    def _send_tools_to_hud_once(self):
+        """Send the static tool list to HUD only once (tools don't change after boot)."""
+        if self._tools_sent_to_hud:
+            return
         try:
             from core.tool_registry import default_tool_registry
             tools = default_tool_registry.list_tools()
             if hasattr(self, "hud") and hasattr(self.hud, "setTools"):
                 self.hud.setTools(tools)
+                self._tools_sent_to_hud = True
         except Exception:
             pass
 
@@ -2101,7 +2267,39 @@ class MainWindow(QMainWindow):
             if hasattr(self, "hud") and hasattr(self.hud, "setActiveWindow"):
                 self.hud.setActiveWindow(title[:45])
 
-        self._send_tools_to_hud()
+        self._send_tools_to_hud_once()
+        if time.monotonic() - getattr(self, '_task_board_updated', -5.0) >= 5:
+            self._refresh_task_board()
+        if time.monotonic() - getattr(self, "_personal_hud_updated", -30.0) >= 30:
+            self._personal_hud_updated = time.monotonic()
+            self._refresh_memory_stats()
+            try:
+                from actions.college_schedule import ScheduleQueryEngine
+                today = ScheduleQueryEngine().get_today_schedule()
+                if hasattr(self, "hud") and hasattr(self.hud, "setCollegeInfo"):
+                    self.hud.setCollegeInfo(f"{today['day']}: {today['count']} classes in your saved timetable.")
+            except Exception:
+                if hasattr(self, "hud") and hasattr(self.hud, "setCollegeInfo"):
+                    self.hud.setCollegeInfo("Today's schedule is unavailable.")
+
+    def _refresh_task_board(self):
+        self._task_board_updated = time.monotonic()
+        if not hasattr(self, 'hud') or not hasattr(self.hud, 'setTasks'):
+            return
+        try:
+            from agent.task_manager import default_task_manager
+            self.hud.setTasks([task.to_dict() for task in default_task_manager.get_pending_tasks()[:12]])
+        except Exception:
+            logger.exception('Task board refresh failed')
+
+    def _start_hand_tracker(self):
+        """Lazily starts the hand tracker worker only when needed."""
+        if self._hand_worker is not None and self._hand_worker.isRunning():
+            return  # Already running
+        self._hand_worker = HandTrackerWorker(self)
+        self._hand_worker.hand_signal.connect(self._on_hand_signal)
+        self._hand_worker.start()
+        logger.info("[UI] HandTrackerWorker started on-demand.")
 
     def _on_hand_signal(self, x: float, y: float, detected: bool, gesture: str, depth: float):
         if hasattr(self, "hud") and hasattr(self.hud, "setHandPosition"):
@@ -2121,6 +2319,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "hud") and hasattr(self.hud, "appendLog"):
             self.hud.appendLog(text)
         if text.startswith("Jarvis:") or text.startswith("JARVIS:"):
+            self._refresh_task_board()
             msg = text.split(":", 1)[1].strip()
             if getattr(self, "_response_card", None) is not None:
                 self._response_card.setText(f'JARVIS: "{msg}"')
@@ -2131,7 +2330,12 @@ class MainWindow(QMainWindow):
             if hasattr(self, "chat_panel"):
                 self.chat_panel.append_message("JARVIS", msg)
         elif text.startswith("You:"):
-            pass
+            msg = text.split(":", 1)[1].strip()
+            if msg:
+                if hasattr(self, "hud") and hasattr(self.hud, "appendChat"):
+                    self.hud.appendChat("You", msg)
+                if hasattr(self, "chat_panel"):
+                    self.chat_panel.append_message("You", msg)
 
     def _dispatch_command(self, cmd: str):
         if not cmd or not cmd.strip():
@@ -2180,8 +2384,52 @@ class MainWindow(QMainWindow):
         if hasattr(self, "chat_panel"):
             self.chat_panel.append_message("SYSTEM", f"Attached file: {p.name}")
         if self.on_text_command:
-            msg = f"[FILE_UPLOADED] path={path} | name={p.name}"
+            import json
+            msg = '[FILE_UPLOADED] ' + json.dumps({'path': str(path)}, ensure_ascii=False)
             threading.Thread(target=self.on_text_command, args=(msg,), daemon=True).start()
+
+    def _show_model_studio(self, url: str, request: dict):
+        """The command worker requests a viewer; all Qt work stays on the UI thread."""
+        if not _HAS_WEBENGINE:
+            request['ready'] = False
+            request['event'].set()
+            return
+        if not getattr(self, '_model_dialog', None):
+            self._model_dialog = QDialog(self)
+            self._model_dialog.setWindowTitle('JARVIS — 3D Studio')
+            self._model_dialog.resize(1200, 800)
+            layout = QVBoxLayout(self._model_dialog)
+            layout.setContentsMargins(0, 0, 0, 0)
+            self._model_web = QWebEngineView(self._model_dialog)
+            self._model_web.settings().setAttribute(QWebEngineSettings.WebAttribute.WebGLEnabled, True)
+            layout.addWidget(self._model_web)
+            self._model_web.loadFinished.connect(self._model_studio_loaded)
+            self._model_web.page().newWindowRequested.connect(self._model_studio_external_link)
+            self._model_dialog.finished.connect(lambda: self._model_web.page().setVisible(False))
+        self._model_request = request
+        self._model_dialog.show()
+        self._model_dialog.raise_()
+        self._model_dialog.activateWindow()
+        self._model_web.page().setVisible(True)
+        if self._model_web.url().toString() == url and getattr(self, '_model_page_ready', False):
+            request['ready'] = True
+            request['event'].set()
+        else:
+            self._model_page_ready = False
+            self._model_web.setUrl(QUrl(url))
+
+    def _model_studio_loaded(self, success: bool):
+        self._model_page_ready = bool(success)
+        request = getattr(self, '_model_request', None)
+        if request:
+            request['ready'] = bool(success)
+            request['event'].set()
+
+    def _model_studio_external_link(self, request):
+        from actions.chrome_profile import open_url_in_yajat_chrome
+        url = request.requestedUrl().toString()
+        if url.startswith('https://'):
+            open_url_in_yajat_chrome(url)
 
     def set_muted(self, muted: bool):
         """Authoritatively updates UI mic mute state and QWebChannel bridge indicator."""
@@ -2244,7 +2492,7 @@ class MainWindow(QMainWindow):
 
         st_map = {
             "LISTENING": ("color: " + C.GREEN + "; border: 1px solid " + C.GREEN + ";", "LISTENING..."),
-            "THINKING":  ("color: " + C.AMBER + "; border: 1px solid " + C.AMBER + ";", "THINKING..."),
+            "THINKING":  ("color: " + C.AMBER + "; border: 1px solid " + C.AMBER + ";", "WORKING..."),
             "SPEAKING":  ("color: " + C.GREEN + "; border: 1px solid " + C.GREEN + ";", "SPEAKING..."),
             "EXECUTING": ("color: " + C.VIOLET + "; border: 1px solid " + C.VIOLET + ";", "EXECUTING..."),
             "MUTED":      ("color: " + C.RED + "; border: 1px solid " + C.RED + ";", "MUTED"),
@@ -2289,14 +2537,28 @@ class MainWindow(QMainWindow):
         self._on_log_received("SYS: Initialised. JARVIS online.")
 
     def closeEvent(self, event):
+        # Stop all Qt timers
         if hasattr(self, "_clock_tmr") and self._clock_tmr.isActive():
             self._clock_tmr.stop()
         if hasattr(self, "_metric_tmr") and self._metric_tmr.isActive():
             self._metric_tmr.stop()
+        # Stop WebEngine ready timer
         if hasattr(self, "hud") and hasattr(self.hud, "_ready_timer") and self.hud._ready_timer.isActive():
             self.hud._ready_timer.stop()
-        if hasattr(self, "_hand_worker"):
+        # Stop hand tracker worker
+        if hasattr(self, "_hand_worker") and self._hand_worker is not None:
             self._hand_worker.stop()
+        # Stop background system metrics thread
+        try:
+            _metrics.stop()
+        except Exception:
+            pass
+        # Stop TTS engine
+        try:
+            from core.tts_engine import get_tts_engine
+            get_tts_engine().shutdown()
+        except Exception:
+            pass
         event.accept()
 
 
@@ -2329,6 +2591,16 @@ class JarvisUI:
         self._win.raise_()
         self._win.activateWindow()
         self.root = _RootShim(self._app)
+        from actions.model_3d import register_viewer_opener
+        register_viewer_opener(self.open_model_studio)
+
+    def open_model_studio(self, url: str) -> bool:
+        request = {'event': threading.Event(), 'ready': False}
+        if QThread.currentThread() == self._app.thread():
+            self._win._show_model_studio(url, request)
+            return bool(request['ready'])
+        self._win._model_studio_sig.emit(url, request)
+        return request['event'].wait(8) and bool(request['ready'])
 
     @property
     def muted(self) -> bool:
@@ -2351,15 +2623,19 @@ class JarvisUI:
     def on_text_command(self, cb):
         self._win.on_text_command = cb
 
+    @property
+    def on_voice_wake(self):
+        return self._win.on_voice_wake
+
+    @on_voice_wake.setter
+    def on_voice_wake(self, callback):
+        self._win.on_voice_wake = callback
+
     def set_state(self, state: str):
         self._win._state_sig.emit(state)
 
     def set_camera_active(self, active: bool):
-        try:
-            if hasattr(self._win, "hud") and hasattr(self._win.hud, "setCameraActive"):
-                self._win.hud.setCameraActive(active)
-        except Exception:
-            pass
+        self._win._camera_sig.emit(bool(active))
 
     def set_audio_level(self, level: float):
         try:
@@ -2369,6 +2645,18 @@ class JarvisUI:
 
     def write_log(self, text: str):
         self._win._log_sig.emit(text)
+
+    def capture_for_analysis(self):
+        if QThread.currentThread() == self._app.thread():
+            raise RuntimeError('Screen analysis capture must run in its command worker')
+        request = {'event':threading.Event()}
+        self._win._capture_sig.emit(request)
+        if not request['event'].wait(4):
+            request['cancelled'] = True
+            raise RuntimeError('Screen capture did not complete')
+        if request.get('error'):
+            raise RuntimeError(request['error'])
+        return request.get('image', b''), request.get('title', '')
 
     def add_recent_action(self, text: str):
         self._win._action_sig.emit(text)

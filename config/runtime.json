@@ -1,0 +1,20 @@
+{
+  "ai_mode": "hybrid",
+  "prefer_cloud": true,
+  "text_model": "gemini-3.5-flash-lite",
+  "live_model": "gemini-3.8-live",
+  "live_fallback_models": [
+    "gemini-2.5-flash-native-audio-preview-12-2025"
+  ],
+  "voice_name": "Charon",
+  "natural_chat_voice": true,
+  "natural_voice_backend": "gemini_tts",
+  "natural_voice_live_fallback": true,
+  "tts_model": "gemini-3.8-flash-lite-tts",
+  "allow_robotic_voice_fallback": false,
+  "voice_barge_in": false,
+  "voice_require_address": true,
+  "local_echo_guard_seconds": 0.5,
+  "local_stt_max_utterance_seconds": 20,
+  "camera_index": 0
+}

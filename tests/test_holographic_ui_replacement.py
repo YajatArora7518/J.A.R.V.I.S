@@ -98,7 +98,7 @@ class TestPyQtUIBridgeIntegration(unittest.TestCase):
             self.assertIn(m, self.ui_code, f"JARVIS3DCore method {m} missing from ui.py")
 
     def test_dynamic_tool_discovery_call(self):
-        self.assertIn("def _send_tools_to_hud(", self.ui_code)
+        self.assertIn("def _send_tools_to_hud_once(", self.ui_code)
         self.assertIn("default_tool_registry.list_tools()", self.ui_code)
 
 

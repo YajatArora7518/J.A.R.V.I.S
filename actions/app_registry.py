@@ -267,6 +267,21 @@ APP_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
 
     # ── DEVELOPMENT ──
+    "antigravity": {
+        "name": "Antigravity IDE",
+        "aliases": ["antigravity", "anti gravity", "antigravity ide", "agy", "google antigravity"],
+        "category": "development",
+        "protocols": ["antigravity:"],
+        "executables": ["Antigravity IDE.exe", "Antigravity.exe", "antigravity.exe"],
+        "registry_keys": ["Antigravity IDE", "Antigravity"],
+        "install_dirs": [
+            "Antigravity IDE",
+            "Antigravity",
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\Antigravity IDE")
+        ],
+        "web_url": None,
+        "process_names": ["Antigravity IDE.exe", "Antigravity.exe"],
+    },
     "vscode": {
         "name": "VS Code",
         "aliases": ["vscode", "vs code", "visual studio code", "code"],
@@ -277,6 +292,28 @@ APP_REGISTRY: Dict[str, Dict[str, Any]] = {
         "install_dirs": ["Microsoft VS Code"],
         "web_url": "https://vscode.dev",
         "process_names": ["code.exe", "code"],
+    },
+    "notepad": {
+        "name": "Notepad",
+        "aliases": ["notepad", "notes", "text editor", "note pad"],
+        "category": "productivity",
+        "protocols": [],
+        "executables": ["notepad.exe", "notepad"],
+        "registry_keys": ["notepad.exe"],
+        "install_dirs": ["Windows", "System32"],
+        "web_url": None,
+        "process_names": ["notepad.exe", "Notepad.exe"],
+    },
+    "calculator": {
+        "name": "Calculator",
+        "aliases": ["calculator", "calc", "windows calculator"],
+        "category": "productivity",
+        "protocols": ["calculator:"],
+        "executables": ["calc.exe"],
+        "registry_keys": ["calc.exe"],
+        "install_dirs": [],
+        "web_url": None,
+        "process_names": ["CalculatorApp.exe", "calc.exe"],
     },
 
     # ── MEDIA ──

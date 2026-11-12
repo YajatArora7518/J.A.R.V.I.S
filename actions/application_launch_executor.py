@@ -7,12 +7,12 @@ import time
 import uuid
 import logging
 import platform
+import re
 import subprocess
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
 
 from actions.universal_app_resolver import ApplicationDescriptor, default_app_resolver
-from core.verification import verify_app_launched
 
 logger = logging.getLogger("JARVIS.ApplicationLaunchExecutor")
 
@@ -115,10 +115,17 @@ class ApplicationLaunchExecutor:
             result.status = "VERIFYING"
             print(f"[JARVIS][APP][VERIFY] Verification started (Attempt {attempt + 1})...")
 
-            time.sleep(1.2)  # Wait for OS window/process initialization
-
-            ver_res = self._verify_application_launched(descriptor)
-            if ver_res.get("verified"):
+            ver_res = {}
+            focused = False
+            for check in range(24):
+                ver_res = self._verify_application_launched(descriptor)
+                if ver_res.get('verified'):
+                    focused = self._try_focus_existing(descriptor)
+                    break  # A ready window with rejected focus is not a startup delay.
+                if check < 23:
+                    time.sleep(0.15)
+            if ver_res.get("verified") and focused:
+                ver_res["foreground_verified"] = True
                 print(f"[JARVIS][APP][VERIFY] Process verified")
                 print(f"[JARVIS][APP][VERIFY] Window verified")
                 print(f"[JARVIS][APP][RESULT] FINAL STATUS: COMPLETED")
@@ -130,6 +137,8 @@ class ApplicationLaunchExecutor:
                 return result
             else:
                 print(f"[JARVIS][APP][VERIFY] Verification attempt {attempt + 1} failed: {ver_res.get('reason')}")
+                if ver_res.get('startup_pending'):
+                    break  # Do not launch another updater while this one is running.
 
         # If all retries failed verification
         print(f"[JARVIS][APP][RESULT] FINAL STATUS: FAILED")
@@ -139,73 +148,64 @@ class ApplicationLaunchExecutor:
         result.verification_passed = False
         result.failure_reason = "verification_failed"
         result.message = f"I tried to launch {descriptor.display_name}, but its window could not be verified."
+        if ver_res.get('startup_pending'):
+            result.failure_reason = 'startup_pending'
+            result.verification_details = ver_res
+            result.message = f'{descriptor.display_name} ki update/loading window dikhi; main app window abhi ready nahi hai.'
         return result
 
-    def _try_focus_existing(self, descriptor: ApplicationDescriptor) -> bool:
-        """Checks if process/window exists and brings to foreground."""
-        if platform.system() != "Windows":
-            return False
-
-        proc_names = descriptor.process_names or [descriptor.display_name]
-
-        # Check if process is running
-        running = False
-        if _HAS_PSUTIL:
-            try:
-                for proc in psutil.process_iter(["name"]):
-                    pname = (proc.info.get("name") or "").lower()
-                    if any(target.lower().replace(".exe", "") in pname for target in proc_names):
-                        running = True
-                        break
-            except Exception:
-                pass
-
-        if not running:
-            return False
-
-        # Attempt to focus window via AppActivate
-        targets = [descriptor.display_name] + proc_names
-        for t in targets:
-            clean_t = t.replace(".exe", "").strip()
-            if len(clean_t) < 2:
-                continue
-            try:
-                ps_cmd = f'(New-Object -ComObject WScript.Shell).AppActivate("{clean_t}")'
-                res = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd], capture_output=True, text=True, timeout=2)
-                if "True" in res.stdout:
-                    return True
-            except Exception:
-                pass
-
-        # Attempt via Win32 EnumWindows
+    def _candidate_windows(self, descriptor, include_startup=False):
+        """Visible windows owned by exact application processes, excluding launchers."""
+        if platform.system() != 'Windows' or not _HAS_PSUTIL:
+            return []
         try:
-            import ctypes
-            user32 = ctypes.windll.user32
-            found = []
+            import win32gui
+            import win32process
+            names = {os.path.basename(name).casefold().removesuffix('.exe')
+                     for name in (descriptor.process_names or [descriptor.display_name])}
+            pids = {proc.info['pid'] for proc in psutil.process_iter(['pid', 'name'])
+                    if (proc.info.get('name') or '').casefold().removesuffix('.exe') in names}
+            windows = []
+            def collect(hwnd, _):
+                title = win32gui.GetWindowText(hwnd).strip()
+                pid = win32process.GetWindowThreadProcessId(hwnd)[1]
+                startup = re.fullmatch(re.escape(descriptor.display_name) + r'\s+(?:updater|setup|installer|loading|splash)(?:\s*[-:].*)?', title, re.I)
+                if (pid in pids and title and win32gui.IsWindowVisible(hwnd)
+                        and (include_startup or not startup)):
+                    windows.append((hwnd, title, pid))
+            if pids:
+                win32gui.EnumWindows(collect, None)
+            return windows
+        except Exception as error:
+            logger.debug('App window discovery failed: %s', error)
+            return []
 
-            def enum_cb(hwnd, lparam):
-                if user32.IsWindowVisible(hwnd):
-                    length = user32.GetWindowTextLengthW(hwnd)
-                    if length > 0:
-                        buff = ctypes.create_unicode_buffer(length + 1)
-                        user32.GetWindowTextW(hwnd, buff, length + 1)
-                        title = buff.value.lower()
-                        if any(pat.lower() in title for pat in descriptor.window_title_patterns or [descriptor.display_name]):
-                            found.append(hwnd)
-                return True
-
-            WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
-            user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
-
-            if found:
-                hwnd = found[0]
-                user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-                user32.SetForegroundWindow(hwnd)
-                return True
-        except Exception:
-            pass
-
-        return running
+    def _try_focus_existing(self, descriptor: ApplicationDescriptor) -> bool:
+        """Only verify a foreground window owned by the exact app process."""
+        if platform.system() != "Windows" or not _HAS_PSUTIL:
+            return False
+        try:
+            import win32gui
+            import win32com.client
+            for hwnd, title, pid in self._candidate_windows(descriptor):
+                try:
+                    if win32gui.IsIconic(hwnd):
+                        win32gui.ShowWindow(hwnd, 9)
+                    win32gui.SetForegroundWindow(hwnd)
+                except Exception:
+                    pass
+                if win32gui.GetForegroundWindow() != hwnd:
+                    try:
+                        win32com.client.Dispatch('WScript.Shell').AppActivate(pid)
+                    except Exception:
+                        pass
+                for _ in range(4):
+                    if win32gui.GetForegroundWindow() == hwnd and not win32gui.IsIconic(hwnd):
+                        return True
+                    time.sleep(0.1)
+        except Exception as error:
+            logger.debug('App foreground verification failed: %s', error)
+        return False
 
     def _execute_launch_strategy(self, descriptor: ApplicationDescriptor, strategy_index: int) -> bool:
         l_type = descriptor.launch_type
@@ -255,71 +255,14 @@ class ApplicationLaunchExecutor:
         return False
 
     def _verify_application_launched(self, descriptor: ApplicationDescriptor) -> Dict[str, Any]:
-        """Correlates resolved application -> launch identity -> process -> top-level visible window."""
-        proc_names = descriptor.process_names or [descriptor.display_name]
-        titles = descriptor.window_title_patterns or [descriptor.display_name]
-
-        # 1. Process Check
-        matched_pid = None
-        if _HAS_PSUTIL:
-            try:
-                for proc in psutil.process_iter(["name", "pid"]):
-                    pname = (proc.info.get("name") or "").lower()
-                    for target in proc_names:
-                        clean_t = target.lower().replace(".exe", "").strip()
-                        if clean_t and (clean_t in pname or pname.replace(".exe", "") in clean_t):
-                            matched_pid = proc.info.get("pid")
-                            break
-                    if matched_pid:
-                        break
-            except Exception:
-                pass
-
-        # 2. Visible Window Title Check
-        window_found = False
-        matched_title = ""
-        try:
-            import ctypes
-            user32 = ctypes.windll.user32
-
-            def enum_cb(hwnd, lparam):
-                nonlocal window_found, matched_title
-                if user32.IsWindowVisible(hwnd):
-                    length = user32.GetWindowTextLengthW(hwnd)
-                    if length > 0:
-                        buff = ctypes.create_unicode_buffer(length + 1)
-                        user32.GetWindowTextW(hwnd, buff, length + 1)
-                        t_val = buff.value
-                        t_lower = t_val.lower()
-                        for pattern in titles:
-                            if pattern.lower() in t_lower:
-                                window_found = True
-                                matched_title = t_val
-                                return False
-                return True
-
-            WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
-            user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
-        except Exception:
-            pass
-
-        if matched_pid or window_found:
-            return {
-                "verified": True,
-                "pid": matched_pid,
-                "window_title": matched_title or descriptor.display_name,
-                "process_names": proc_names
-            }
-
-        # Fallback to verify_app_launched helper
-        standard_res = verify_app_launched(descriptor.display_name, timeout=2.0)
-        if standard_res.get("verified"):
-            return standard_res
-
-        return {
-            "verified": False,
-            "reason": f"No running process ({proc_names}) or visible window ({titles}) detected."
-        }
+        """A running process or a browser mentioning the app is not a ready app."""
+        windows = self._candidate_windows(descriptor)
+        if windows:
+            hwnd, title, pid = windows[0]
+            return {'verified': True, 'pid': pid, 'window_title': title, 'hwnd': hwnd}
+        loading = bool(self._candidate_windows(descriptor, include_startup=True))
+        return {'verified': False, 'startup_pending': loading,
+                'reason': 'Only a startup/updater window was found.' if loading else 'No visible application-owned main window found.'}
 
 
 # Singleton instance

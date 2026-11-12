@@ -23,15 +23,11 @@ class TestChromeWhatsAppWebSearch(unittest.TestCase):
 
     # 1. INTENT ROUTING FOR WHATSAPP PHRASES
     def test_whatsapp_intent_triggers(self):
-        phrases = [
-            "Open WhatsApp",
-            "Open WhatsApp Web",
-            "WhatsApp khol",
-            "WhatsApp Web khol",
-            "Open WhatsApp in Chrome",
-            "Open my WhatsApp"
-        ]
-        for phrase in phrases:
+        for phrase in ["Open WhatsApp", "WhatsApp khol", "Open my WhatsApp"]:
+            info = classify_intent(phrase)
+            self.assertEqual(info["intent"], "WINDOWS_APPLICATION", f"Failed desktop route: {phrase}")
+            self.assertEqual(info["tool"], "open_app")
+        for phrase in ["Open WhatsApp Web", "WhatsApp Web khol", "Open WhatsApp in Chrome"]:
             info = classify_intent(phrase)
             self.assertEqual(info["intent"], "WHATSAPP_WEB", f"Failed for phrase: {phrase}")
             self.assertEqual(info["target"], "https://web.whatsapp.com/")
@@ -68,13 +64,19 @@ class TestChromeWhatsAppWebSearch(unittest.TestCase):
 
     # 5. WHATSAPP WEB URL VALIDATION & NO "NO APP FOUND"
     def test_open_app_structured_whatsapp_no_no_app_found(self):
-        res = open_app_structured("whatsapp")
-        self.assertNotEqual(res.get("mode"), "none")
-        self.assertNotIn("not found", res.get("message", "").lower())
-        self.assertTrue(res.get("success"))
-
-        res_khol = open_app_structured("WhatsApp Web khol")
-        self.assertTrue(res_khol.get("success"))
+        # Routing regression is deterministic; never focus the user's app here.
+        with patch('actions.windows_whatsapp_desktop_executor.windows_whatsapp_desktop_executor.focus_installed_whatsapp_desktop',return_value=(True,'fixture')),patch('core.verification.verify_app_launched',return_value={'verified':True}),patch('actions.open_app.open_website_in_yajat_profile',return_value={'success':True,'verified':True}) as web:
+            res = open_app_structured("whatsapp")
+            self.assertEqual(res.get('mode'),'desktop')
+            self.assertTrue(res.get('success') and res.get('verified'))
+            web.assert_not_called()
+            res_khol = open_app_structured("WhatsApp Web khol")
+            self.assertTrue(res_khol.get('success'))
+            self.assertEqual(res_khol.get('mode'),'web_fallback')
+            web.assert_called_once()
+        with patch('actions.windows_whatsapp_desktop_executor.windows_whatsapp_desktop_executor.focus_installed_whatsapp_desktop',return_value=(False,'fixture focus rejected')):
+            failed = open_app_structured('whatsapp')
+            self.assertFalse(failed.get('success') or failed.get('verified'))
 
     # 6. WEB SEARCH INTENT DETECTION
     def test_web_search_intent_detection(self):
@@ -94,13 +96,17 @@ class TestChromeWhatsAppWebSearch(unittest.TestCase):
     # 7. ROUTE SEPARATION MATRIX
     def test_intent_route_separation_matrix(self):
         self.assertIn(classify_intent("Open youtube.com")["intent"], ["WEBSITE", "KNOWN_WEBSITE"])
-        self.assertEqual(classify_intent("Search YouTube for Virat Kohli")["intent"], "WEB_SEARCH")
-        self.assertEqual(classify_intent("Open WhatsApp")["intent"], "WHATSAPP_WEB")
+        self.assertEqual(classify_intent("Search YouTube for Virat Kohli")["intent"], "YOUTUBE_VIDEO")
+        self.assertEqual(classify_intent("Open WhatsApp")["intent"], "WINDOWS_APPLICATION")
+        self.assertEqual(classify_intent("Open WhatsApp Web")["intent"], "WHATSAPP_WEB")
         self.assertEqual(classify_intent("Open Calculator")["intent"], "WINDOWS_APPLICATION")
 
     # 8. WEB SEARCH EXECUTION & REDACTION SAFETY
     def test_web_search_execution_and_redaction(self):
-        data = web_search_structured("Python programming language specs", num_results=2)
+        # Provider availability is an external live probe, not a unit-test precondition.
+        with patch.dict('actions.web_search._PROVIDER_STATUS', {}, clear=True), patch('actions.web_search.search_duckduckgo', return_value=[
+                {'title': 'Python documentation', 'url': 'https://docs.python.org/3/', 'snippet': 'Python language reference'}]):
+            data = web_search_structured("Python programming language specs", num_results=2, force_refresh=True)
         self.assertTrue(data.get("success"))
         self.assertTrue(len(data.get("results", [])) > 0)
 

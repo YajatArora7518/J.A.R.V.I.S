@@ -11,7 +11,7 @@ logger = logging.getLogger("JARVIS.ImportantContactWatcher")
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "important_contacts.json"
 
-DEFAULT_IMPORTANT_CONTACTS = ["Papa", "Mom", "Family", "Dad"]
+DEFAULT_IMPORTANT_CONTACTS = ["Papa", "Mumma", "Family", "Dad"]
 
 
 class ImportantContactWatcher:
@@ -31,27 +31,37 @@ class ImportantContactWatcher:
                 logger.warning(f"Failed to load important contacts: {e}")
         return DEFAULT_IMPORTANT_CONTACTS.copy()
 
-    def _save_contacts(self) -> None:
+    def _save_contacts(self) -> bool:
         try:
             CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-                json.dump({"important_contacts": self.important_contacts}, f, indent=4)
+            data = json.loads(CONFIG_PATH.read_text(encoding='utf-8')) if CONFIG_PATH.exists() else {}
+            data['important_contacts'] = self.important_contacts
+            temp = CONFIG_PATH.with_suffix('.json.tmp')
+            temp.write_text(json.dumps(data, ensure_ascii=False, indent=4), encoding='utf-8')
+            temp.replace(CONFIG_PATH)
+            return True
         except Exception as e:
             logger.warning(f"Failed to save important contacts: {e}")
+            return False
 
     def add_important_contact(self, name: str) -> Dict[str, Any]:
         c_name = name.strip()
         if c_name and c_name not in self.important_contacts:
             self.important_contacts.append(c_name)
-            self._save_contacts()
+            if not self._save_contacts():
+                self.important_contacts.remove(c_name)
+                return {'success': False, 'message': 'Contact save nahi hua; purani settings safe hain.'}
             return {"success": True, "message": f"'{c_name}' added to important contacts.", "contacts": self.important_contacts}
         return {"success": True, "message": f"'{c_name}' is already in important contacts.", "contacts": self.important_contacts}
 
     def remove_important_contact(self, name: str) -> Dict[str, Any]:
         c_name = name.strip()
         if c_name in self.important_contacts:
+            previous = self.important_contacts.copy()
             self.important_contacts.remove(c_name)
-            self._save_contacts()
+            if not self._save_contacts():
+                self.important_contacts = previous
+                return {'success': False, 'message': 'Contact change save nahi hua; purani settings safe hain.'}
             return {"success": True, "message": f"'{c_name}' removed from important contacts.", "contacts": self.important_contacts}
         return {"success": False, "message": f"'{c_name}' was not found in important contacts.", "contacts": self.important_contacts}
 

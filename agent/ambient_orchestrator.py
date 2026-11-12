@@ -43,18 +43,39 @@ class AmbientOrchestrator:
                 if not self._running:
                     break
 
-                if privacy_mode_manager.is_privacy_mode_active():
-                    continue
-
-                ctx = context_engine.get_current_context()
-                decision = proactive_decision_engine.evaluate_proactive_speech(ctx)
-
-                if decision and decision.get("message") and self.speak_callback:
-                    self.speak_callback(decision["message"])
+                self.tick()
 
             except Exception as ex:
                 # Controlled error logging; awareness failure NEVER crashes JARVIS
                 print(f"[AmbientOrchestrator] Worker note: {ex}")
+
+    def tick(self):
+        from agent.daily_planner import get_daily_planner, desktop_idle_seconds
+        planner = get_daily_planner()
+        planner.heartbeat()
+        if privacy_mode_manager.is_privacy_mode_active() or not self.speak_callback:
+            return None
+        ctx = context_engine.get_current_context()
+        event = None
+        decision = proactive_decision_engine.evaluate_proactive_speech(ctx)
+        if not decision:
+            event = planner.next_check_in(idle_seconds=desktop_idle_seconds())
+            if event:
+                decision = proactive_decision_engine.evaluate_proactive_speech({'explicit_event': {
+                    'type': 'DAILY_CHECK_IN', 'priority': 'MEDIUM', 'message': event['message']}})
+        if decision and decision.get('message'):
+            try:
+                delivered = self.speak_callback(decision['message'])
+            except Exception:
+                proactive_decision_engine.delivery_failed(decision)
+                raise
+            if delivered is False:
+                proactive_decision_engine.delivery_failed(decision)
+                return None
+            if event:
+                planner.mark_delivered(event)
+            return decision
+        return None
 
 
 ambient_orchestrator = AmbientOrchestrator()

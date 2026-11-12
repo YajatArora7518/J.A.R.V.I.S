@@ -10,9 +10,7 @@ from actions.chrome_profile import open_url_in_chrome_profile, resolve_chrome_pr
 # Canonical dictionary mapping supported platforms & web services to their official URLs
 KNOWN_WEBSITES: Dict[str, str] = {
     # Special Communication / Chat Web Apps
-    "whatsapp": "https://web.whatsapp.com/",
     "whatsapp web": "https://web.whatsapp.com/",
-    "whats app": "https://web.whatsapp.com/",
     "telegram": "https://web.telegram.org/",
     "telegram web": "https://web.telegram.org/",
     

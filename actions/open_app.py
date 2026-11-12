@@ -7,10 +7,11 @@ import time
 import glob
 import platform
 import shutil
+import re
 import subprocess
 import webbrowser
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, Union
 
 try:
     import psutil
@@ -55,18 +56,7 @@ def _focus_existing_window(process_names: list[str], app_name: str = "") -> bool
     if app_name:
         targets.append(app_name.lower().strip())
 
-    for t in targets:
-        if not t or len(t) < 2:
-            continue
-        try:
-            ps_cmd = f'(New-Object -ComObject WScript.Shell).AppActivate("{t}")'
-            res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True, timeout=2)
-            if "True" in res.stdout:
-                print(f"[open_app] Focused existing window via AppActivate for '{t}'")
-                return True
-        except Exception:
-            pass
-
+    # 1. Fast Path: Win32 EnumWindows via ctypes (< 1 ms)
     try:
         import ctypes
         user32 = ctypes.windll.user32
@@ -80,7 +70,7 @@ def _focus_existing_window(process_names: list[str], app_name: str = "") -> bool
                     user32.GetWindowTextW(hwnd, buff, length + 1)
                     title = buff.value.lower()
                     for t in targets:
-                        if t and t in title:
+                        if t and len(t) >= 2 and t in title:
                             found_hwnds.append(hwnd)
                             break
             return True
@@ -95,7 +85,31 @@ def _focus_existing_window(process_names: list[str], app_name: str = "") -> bool
             print(f"[open_app] Focused existing window via EnumWindows for '{app_name}'")
             return True
     except Exception as e:
-        print(f"[open_app] Focus window exception: {e}")
+        pass
+
+    # 2. In-Process COM WScript.Shell AppActivate (fast)
+    try:
+        import win32com.client
+        wscript = win32com.client.Dispatch("WScript.Shell")
+        for t in targets:
+            if len(t) >= 2 and wscript.AppActivate(t):
+                print(f"[open_app] Focused existing window via COM AppActivate for '{t}'")
+                return True
+    except Exception:
+        pass
+
+    # 3. Fallback: PowerShell subprocess AppActivate
+    for t in targets:
+        if not t or len(t) < 2:
+            continue
+        try:
+            ps_cmd = f'(New-Object -ComObject WScript.Shell).AppActivate("{t}")'
+            res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True, timeout=2)
+            if "True" in res.stdout:
+                print(f"[open_app] Focused existing window via AppActivate for '{t}'")
+                return True
+        except Exception:
+            pass
 
     return False
 
@@ -213,10 +227,13 @@ def _launch_desktop_windows(entry: Dict[str, Any]) -> Tuple[bool, str, str]:
                         except Exception as e:
                             print(f"[open_app] Candidate launch error: {e}")
 
-    # STEP 5: Start Menu Shortcuts (.lnk Search)
+    # STEP 5: Start Menu and Desktop Shortcuts (.lnk Search)
     sm_paths = [
         os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Start Menu\Programs"),
         os.path.expandvars(r"%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs"),
+        os.path.expandvars(r"%USERPROFILE%\Desktop"),
+        os.path.expandvars(r"%PUBLIC%\Desktop"),
+        os.path.expandvars(r"%USERPROFILE%\OneDrive\Desktop"),
     ]
     clean_name = app_name.lower().replace(" ", "")
     for sm in sm_paths:
@@ -289,6 +306,7 @@ def open_app_structured(input_name: str) -> Dict[str, Any]:
                     "success": True,
                     "app": resolved_web["name"],
                     "mode": "web_fallback",
+                    "verified": bool(web_res.get("verified", False)),
                     "message": web_res.get("message", f"Opening {resolved_web['name']} in your Yajat Chrome profile.")
                 }
             else:
@@ -304,12 +322,35 @@ def open_app_structured(input_name: str) -> Dict[str, Any]:
         from actions.windows_whatsapp_desktop_executor import set_whatsapp_user_action_requested, windows_whatsapp_desktop_executor
         set_whatsapp_user_action_requested(True)
         w_res = windows_whatsapp_desktop_executor.focus_installed_whatsapp_desktop()
-        return {
-            "success": w_res[0],
-            "app": "WhatsApp",
-            "mode": "desktop",
-            "message": w_res[1]
-        }
+        launch_ok = w_res[0]
+        # POST-LAUNCH VERIFICATION: actually check if WhatsApp is running
+        if launch_ok:
+            from core.verification import verify_app_launched
+            v = verify_app_launched("WhatsApp", timeout=5.0)
+            if v.get("verified"):
+                return {
+                    "success": True,
+                    "app": "WhatsApp",
+                    "mode": "desktop",
+                    "message": "WhatsApp Desktop khol diya boss.",
+                    "verified": True
+                }
+            else:
+                return {
+                    "success": False,
+                    "app": "WhatsApp",
+                    "mode": "desktop",
+                    "message": "WhatsApp launch attempt hua tha, but window/process confirm nahi hua.",
+                    "verified": False
+                }
+        else:
+            return {
+                "success": False,
+                "app": "WhatsApp",
+                "mode": "none",
+                "message": f"WhatsApp open nahi hua boss. {w_res[1]}",
+                "verified": False
+            }
 
     from actions.universal_app_resolver import default_app_resolver
     from actions.application_launch_executor import default_launch_executor
@@ -324,6 +365,7 @@ def open_app_structured(input_name: str) -> Dict[str, Any]:
                 "success": True,
                 "app": "Google Chrome (Yajat Profile)",
                 "mode": "desktop",
+                "verified": bool(c_res.get("verified", False)),
                 "message": c_res.get("message", "Opened Google Chrome with Yajat profile.")
             }
 
@@ -334,6 +376,7 @@ def open_app_structured(input_name: str) -> Dict[str, Any]:
                 "success": True,
                 "app": descriptor.display_name,
                 "mode": "desktop",
+                "verified": True,
                 "message": act_res.message or f"Opened {descriptor.display_name}.",
                 "action_result": act_res
             }
@@ -342,11 +385,21 @@ def open_app_structured(input_name: str) -> Dict[str, Any]:
                 "success": False,
                 "app": descriptor.display_name,
                 "mode": "none",
+                "verified": False,
                 "message": act_res.message or f"Failed to launch {descriptor.display_name}.",
                 "action_result": act_res
             }
 
-    # CRITICAL RULE: Local App Not Found -> NO automatic Store or Web Search fallback!
+    # Known services have an exact web destination. Never search for unknown apps.
+    entry = resolve_app(input_name)
+    explicit_desktop = bool(re.search(r"\b(desktop|native|installed)\b", raw_clean))
+    if entry and entry.get("web_url") and not explicit_desktop:
+        from actions.chrome_profile import open_url_in_yajat_chrome
+        web_res = open_url_in_yajat_chrome(entry["web_url"])
+        return {"success": bool(web_res.get("success")), "verified": bool(web_res.get("verified", False)),
+                "app": entry.get("name", input_name), "mode": "web_fallback",
+                "message": web_res.get("message", f"{entry.get('name', input_name)} browser mein kholne ki request di.")}
+    # Unknown applications still fail honestly.
     print(f"[open_app] Application '{input_name}' not found locally. Honest failure returned.")
     return {
         "success": False,
@@ -357,19 +410,58 @@ def open_app_structured(input_name: str) -> Dict[str, Any]:
 
 
 def open_app(
-    parameters: Optional[Dict[str, Any]] = None,
+    parameters: Optional[Union[Dict[str, Any], str]] = None,
     response: Any = None,
     player: Any = None,
     session_memory: Any = None,
     **kwargs
-) -> str:
+) -> Dict[str, Any]:
     """
     Tool handler for JARVIS tool registry.
     Triggers structured execution, logs structured activity to player, drives 3D Core state transitions,
     and returns concise verbal response for TTS.
+    Accepts positional string, parameters dictionary, or arbitrary keyword arguments (target, app_name, app, name, application).
     """
-    params = parameters or kwargs or {}
-    raw_name = (params.get("app_name") or params.get("name") or "").strip()
+    if player is None and "player" in kwargs:
+        player = kwargs["player"]
+
+    # 1. Flexible parameter resolution across all caller patterns
+    raw_name = ""
+    if isinstance(parameters, str):
+        raw_name = parameters
+    elif isinstance(parameters, dict):
+        raw_name = (
+            parameters.get("app_name") or
+            parameters.get("target") or
+            parameters.get("app") or
+            parameters.get("name") or
+            parameters.get("application") or
+            parameters.get("query") or
+            ""
+        )
+    elif parameters is None:
+        raw_name = (
+            kwargs.get("app_name") or
+            kwargs.get("target") or
+            kwargs.get("app") or
+            kwargs.get("name") or
+            kwargs.get("application") or
+            kwargs.get("query") or
+            ""
+        )
+
+    # Convert to string and clean up surrounding whitespace/quotes
+    raw_name = str(raw_name or "").strip(" \t\r\n'\"`")
+
+    # Strip vocative prefixes / action verbs if user passed verbatim command
+    if raw_name:
+        raw_name = re.sub(r"^(jarvis|boss|sir|hey jarvis|okay jarvis|ok jarvis)[,\s]+", "", raw_name, flags=re.IGNORECASE).strip()
+        raw_name = re.sub(r"[,\s]+(jarvis|boss|sir)$", "", raw_name, flags=re.IGNORECASE).strip()
+        raw_name = re.sub(r"^(please|pls|can you|could you|would you|kindly)\s+", "", raw_name, flags=re.IGNORECASE).strip()
+        raw_name = re.sub(r"^(open|launch|start|run)\s+", "", raw_name, flags=re.IGNORECASE).strip()
+        raw_name = re.sub(r"\s+(kholo|khol|open karo)$", "", raw_name, flags=re.IGNORECASE).strip()
+        raw_name = re.sub(r"\s+(application|app)$", "", raw_name, flags=re.IGNORECASE).strip()
+        raw_name = raw_name.strip(" \t\r\n'\"`.,")
 
     if player and hasattr(player, "set_state"):
         try:
@@ -380,22 +472,27 @@ def open_app(
     res = open_app_structured(raw_name)
     app_name = res.get("app", raw_name.title())
 
-    # Log structured Activity Log to UI
+    # Log structured Activity Log to UI safely
     if player and hasattr(player, "write_log"):
-        player.write_log(f"COMMAND\nOPEN {app_name.upper()}")
-        player.write_log(f"RESOLUTION\n{app_name}")
+        try:
+            player.write_log(f"COMMAND\nOPEN {app_name.upper()}")
+            player.write_log(f"RESOLUTION\n{app_name}")
 
-        if res["success"]:
-            player.write_log(f"EXECUTION\n{app_name} Desktop launched")
-            player.write_log("RESULT\nSUCCESS")
-        else:
-            player.write_log(f"EXECUTION\nUnable to launch {app_name}")
-            player.write_log("RESULT\nERROR")
+            if res.get("success") and res.get("verified"):
+                player.write_log(f"EXECUTION\n{app_name} opened ({res.get('mode', 'desktop')})")
+                player.write_log("RESULT\nSUCCESS")
+            elif res.get("success"):
+                player.write_log(f"RESULT\n{app_name} launch requested; verification pending")
+            else:
+                player.write_log(f"EXECUTION\nUnable to launch {app_name}")
+                player.write_log("RESULT\nERROR")
+        except Exception:
+            pass
 
-    # Update 3D Core State Machine
+    # Update 3D Core State Machine safely
     if player and hasattr(player, "set_state"):
         try:
-            if res["success"]:
+            if res.get("success") and res.get("verified"):
                 player.set_state("SUCCESS")
             else:
                 player.set_state("RECOVERING")
@@ -403,17 +500,20 @@ def open_app(
             pass
 
     # Concise Verbal Response for Voice TTS & Tool Registry Verification
-    if res["success"]:
+    # TRUTHFUL: only claim success when verified, never generic 'Opening X' without proof
+    if res.get("success"):
         return {
             "success": True,
-            "message": f"Opening {app_name}.",
+            "message": (res.get("message") or f"{app_name} khol diya boss.") if res.get("verified") else f"{app_name} launch ki request di; verification pending hai.",
             "app": app_name,
-            "mode": res.get("mode", "desktop")
+            "mode": res.get("mode", "desktop"),
+            "verified": bool(res.get("verified", False))
         }
 
     return {
         "success": False,
-        "message": f"I couldn't find or launch {app_name}, sir.",
-        "app": app_name,
-        "mode": "none"
+        "message": res.get("message") or f"{app_name or raw_name} open nahi hua boss.",
+        "app": app_name or raw_name,
+        "mode": "none",
+        "verified": False
     }

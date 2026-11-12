@@ -58,12 +58,16 @@ def resolve_social_platform(platform_name: str) -> SocialPlatformProvider:
             def __init__(self):
                 super().__init__("WhatsApp")
             def open_chat(self, contact: str) -> Dict[str, Any]:
-                return windows_whatsapp_desktop_executor.execute_send_message(recipient=contact, message="")
+                from actions.whatsapp_desktop_dom import desktop_action
+                return desktop_action("open_chat", contact)
             def send_message(self, target: str, message: str, force_send: bool = False) -> Dict[str, Any]:
                 return windows_whatsapp_desktop_executor.execute_send_message(recipient=target, message=message)
             def read_messages(self, target: str = "") -> Dict[str, Any]:
-                return {"success": True, "action": "read_messages", "message": "Reading visible messages on installed WhatsApp Desktop", "execution_target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP"}
+                from actions.whatsapp_desktop_dom import desktop_action
+                return desktop_action("read", target)
             def call(self, target: str, call_type: str = "voice", confirm_call: bool = False) -> Dict[str, Any]:
+                if not confirm_call:
+                    return {"success": False, "verified": False, "requires_confirmation": True, "message": "Exact WhatsApp call instruction confirm karo."}
                 if call_type == "video":
                     return windows_whatsapp_desktop_executor.execute_video_call(recipient=target)
                 return windows_whatsapp_desktop_executor.execute_voice_call(recipient=target)
@@ -73,5 +77,22 @@ def resolve_social_platform(platform_name: str) -> SocialPlatformProvider:
     elif p_name in ["discord", "disc"]:
         from actions.discord_automation import discord_provider
         return discord_provider
+
+    elif p_name in ["instagram", "insta", "ig"]:
+        class InstagramProvider(SocialPlatformProvider):
+            def __init__(self):
+                super().__init__("Instagram")
+            def send_message(self, target, message, force_send=False):
+                from actions.social_chat import social_chat
+                return social_chat({"platform": "instagram", "action": "send", "recipient": target, "message_text": message})
+            def read_messages(self, target=""):
+                from actions.social_chat import social_chat
+                return social_chat({"platform": "instagram", "action": "read", "recipient": target})
+            def call(self, target, call_type="voice", confirm_call=False):
+                if not confirm_call:
+                    return {"success": False, "verified": False, "requires_confirmation": True, "message": "Exact Instagram call instruction confirm karo."}
+                from actions.social_chat import social_chat
+                return social_chat({"platform": "instagram", "action": "call", "recipient": target, "call_type": call_type})
+        return InstagramProvider()
 
     return SocialPlatformProvider(platform_name)

@@ -51,7 +51,7 @@ class JarvisConfig:
             api_server_key or
             os.environ.get("JARVIS_API_KEY") or
             disk_cfg.get("jarvis_api_key") or
-            "default-jarvis-key"
+            ""
         ).strip()
 
         self.host = (

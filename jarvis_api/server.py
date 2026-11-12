@@ -165,10 +165,20 @@ class JarvisServer:
                 self.end_headers()
                 self.wfile.write(json.dumps(data).encode("utf-8"))
 
+            def _authorized(self):
+                expected = cfg.api_server_key
+                supplied = self.headers.get("X-JARVIS-API-KEY")
+                if not expected or supplied != expected:
+                    self._send_json({"error": "Unauthorized"}, 401)
+                    return False
+                return True
+
             def do_GET(self):
                 if self.path == "/api/v1/health":
                     st = client.get_status()
                     self._send_json({"status": st.status, "version": __version__})
+                elif not self._authorized():
+                    return
                 elif self.path == "/api/v1/tools":
                     self._send_json({"tools": client.list_tools()})
                 elif self.path == "/api/v1/status":
@@ -177,6 +187,8 @@ class JarvisServer:
                     self._send_json({"error": "Not Found"}, 404)
 
             def do_POST(self):
+                if not self._authorized():
+                    return
                 length = int(self.headers.get("Content-Length", 0))
                 body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
                 if self.path == "/api/v1/execute":

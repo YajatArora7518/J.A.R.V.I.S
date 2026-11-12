@@ -50,7 +50,7 @@ class SecurityManager:
             return RiskLevel.HIGH
         if name in ["computer_settings", "computer_control", "windows_system_controller"] and action in ["shutdown", "restart", "close_app", "kill_process", "terminate_process"]:
             return RiskLevel.HIGH
-        if name in ["windows_service_control", "windows_services"] and action in ["start_service", "stop_service", "restart_service"]:
+        if name in ["windows_service_control", "windows_services"] and action in ["start_service", "stop_service", "restart_service", "start", "stop", "restart"]:
             return RiskLevel.HIGH
 
         # Medium-risk actions: create/write files, create scripts, move/copy/rename files, launch programs, start/stop non-critical processes, open applications
@@ -70,13 +70,16 @@ class SecurityManager:
         self,
         tool_name: str,
         parameters: Dict[str, Any],
-        player: Any = None
+        player: Any = None,
+        risk_level: Optional[RiskLevel] = None,
     ) -> Tuple[bool, Optional[str]]:
         """
         Validates parameters and requests confirmation for HIGH/CRITICAL risk actions.
         Returns (authorized, reason_if_denied).
         """
-        risk = self.classify_risk(tool_name, parameters)
+        dynamic_risk = self.classify_risk(tool_name, parameters)
+        levels = list(RiskLevel)
+        risk = max((dynamic_risk, risk_level or dynamic_risk), key=levels.index)
 
         # Parameter sanitization
         if "path" in parameters:
@@ -97,6 +100,8 @@ class SecurityManager:
                 confirmed = self.confirmation_callback(prompt_msg)
                 if not confirmed:
                     return False, f"Operation cancelled by user security prompt: {prompt_msg}"
+            else:
+                return False, f"Operation denied: explicit user confirmation is required for {risk.value}-risk action '{tool_name}'."
 
         return True, None
 

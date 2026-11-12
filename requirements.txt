@@ -1,10 +1,13 @@
 sounddevice
+faster-whisper
+pywin32; sys_platform == "win32"
+pyttsx3
 google-genai
 google-generativeai
 pillow
 requests
 beautifulsoup4
-duckduckgo-search
+ddgs==9.16.0
 playwright          
 pyautogui
 pyperclip
@@ -19,6 +22,8 @@ pycaw
 win10toast          
 send2trash
 youtube-transcript-api
+python-pptx>=1.0.2
+pdfplumber>=0.11.10
 pywinauto
 PyQt6
 PyQt6-WebEngine

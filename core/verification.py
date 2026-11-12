@@ -20,10 +20,90 @@ except Exception:
     _HAS_PYGETWINDOW = False
 
 
+def verify_whatsapp_launched(timeout: float = 4.0, target: str = "desktop") -> Dict[str, Any]:
+    """
+    Specifically verifies WhatsApp launch, strictly distinguishing between
+    WHATSAPP_DESKTOP and WHATSAPP_WEB.
+    Never considers a browser tab containing WhatsApp as Desktop verification.
+    """
+    start_time = time.time()
+    browser_indicators = ["google chrome", "microsoft edge", "firefox", "brave", "opera", "whatsapp web"]
+
+    while time.time() - start_time < timeout:
+        # 1. Check real WhatsApp Desktop processes
+        if _HAS_PSUTIL:
+            try:
+                for proc in psutil.process_iter(["name", "pid"]):
+                    pname = (proc.info.get("name") or "").lower()
+                    if pname in ["whatsapp.exe", "whatsapp.root.exe", "whatsappdesktop.exe"]:
+                        return {
+                            "verified": True if target == "desktop" else False,
+                            "type": "process",
+                            "target_type": "WHATSAPP_DESKTOP",
+                            "pid": proc.info.get("pid"),
+                            "name": proc.info.get("name")
+                        }
+            except Exception:
+                pass
+
+        # 2. Check window titles
+        if _HAS_PYGETWINDOW:
+            try:
+                titles = gw.getAllTitles()
+                web_found = False
+                desktop_found = False
+                desktop_title = ""
+
+                for title in titles:
+                    if not title or "whatsapp" not in title.lower():
+                        continue
+                    t_low = title.lower()
+                    is_browser = any(b in t_low for b in browser_indicators)
+                    if is_browser:
+                        web_found = True
+                    else:
+                        desktop_found = True
+                        desktop_title = title
+
+                if desktop_found and target == "desktop":
+                    return {
+                        "verified": True,
+                        "type": "window",
+                        "target_type": "WHATSAPP_DESKTOP",
+                        "title": desktop_title
+                    }
+                elif web_found and target == "web":
+                    return {
+                        "verified": True,
+                        "type": "window",
+                        "target_type": "WHATSAPP_WEB",
+                        "title": "WhatsApp Web"
+                    }
+                elif web_found and not desktop_found and target == "desktop":
+                    return {
+                        "verified": False,
+                        "target_type": "WHATSAPP_WEB",
+                        "reason": "WhatsApp Web browser window was found, but Windows WhatsApp Desktop is not running."
+                    }
+            except Exception:
+                pass
+
+        time.sleep(0.3)
+
+    return {
+        "verified": False,
+        "target_type": "UNKNOWN",
+        "reason": f"No running WhatsApp Desktop process or window detected within {timeout}s."
+    }
+
+
 def verify_app_launched(app_name: str, timeout: float = 4.0) -> Dict[str, Any]:
     """
     Verifies if an application process or window is running after launch.
     """
+    clean_name = app_name.lower().replace(".exe", "").strip()
+    if "whatsapp" in clean_name:
+        return verify_whatsapp_launched(timeout=timeout, target="desktop")
     start_time = time.time()
     clean_name = app_name.lower().replace(".exe", "").strip()
 
@@ -33,7 +113,10 @@ def verify_app_launched(app_name: str, timeout: float = 4.0) -> Dict[str, Any]:
             try:
                 for proc in psutil.process_iter(["name", "pid"]):
                     name = (proc.info.get("name") or "").lower()
-                    if clean_name in name or name.replace(".exe", "") in clean_name:
+                    p_clean = name.replace(".exe", "").strip()
+                    if not p_clean or len(p_clean) < 2 or not clean_name or len(clean_name) < 2:
+                        continue
+                    if clean_name in p_clean or p_clean in clean_name:
                         return {
                             "verified": True,
                             "type": "process",
@@ -96,6 +179,9 @@ def verify_process_closed(app_name: str, timeout: float = 4.0) -> Dict[str, Any]
         "verified": False,
         "reason": f"Process '{app_name}' is still active."
     }
+
+# Alias for backward compatibility
+verify_process_terminated = verify_process_closed
 
 
 def verify_file_exists(file_path: str, min_bytes: int = 0) -> Dict[str, Any]:

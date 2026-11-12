@@ -30,15 +30,7 @@ class WhatsAppAwarenessProvider:
         res = sock.connect_ex(('127.0.0.1', 9222))
         sock.close()
 
-        if res != 0:
-            try:
-                from actions.browser_automation import ensure_cdp_chrome
-                cdp_res = ensure_cdp_chrome("https://web.whatsapp.com/")
-                if cdp_res.get("success"):
-                    res = 0
-            except Exception:
-                pass
-
+        # Strict Read-Only: Never proactively launch browser/WhatsApp Web
         if res != 0:
             status_registry.update_status("whatsapp", ProviderState.SERVICE_UNAVAILABLE, enabled=True, error_msg="Chrome CDP port 9222 closed")
             return {

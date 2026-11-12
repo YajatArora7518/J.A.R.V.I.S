@@ -182,28 +182,35 @@ def create_plan(goal: str, context: str = "") -> dict:
     if context:
         user_input += f"\n\nContext: {context}"
 
-    # 1. Prefer local Ollama LLM if online and healthy
+    # 1. Prefer local Ollama LLM via LocalAIProvider (Structured JSON)
     try:
-        from core.ollama_provider import is_ollama_available, OllamaProvider
-        if is_ollama_available():
-            provider = OllamaProvider()
-            res = provider.chat(user_input, system_prompt=PLANNER_PROMPT, temperature=0.1)
-            if res.get("success") and res.get("text"):
-                text = res["text"].strip()
-                text = re.sub(r"```(?:json)?", "", text).strip().rstrip("`").strip()
-                plan = json.loads(text)
-                if "steps" in plan and isinstance(plan["steps"], list):
-                    for step in plan["steps"]:
-                        if step.get("tool") in ("generated_code",):
-                            desc = step.get("description", goal)
-                            step["tool"] = "web_search"
-                            step["parameters"] = {"query": desc[:200]}
-                    print(f"[Planner] ✅ Ollama Local Plan: {len(plan['steps'])} steps")
-                    return plan
+        from core.local_ai_provider import get_local_ai_provider
+        provider = get_local_ai_provider()
+        steps = provider.plan(goal)
+        if steps:
+            formatted_steps = []
+            for s in steps:
+                tool_name = s.tool if s.tool != "generated_code" else "web_search"
+                formatted_steps.append({
+                    "step": s.step_number,
+                    "tool": tool_name,
+                    "description": s.description,
+                    "parameters": s.arguments or {"query": s.description},
+                    "critical": True
+                })
+            print(f"[Planner] [OK] Ollama Local Plan: {len(formatted_steps)} steps")
+            return {"goal": goal, "steps": formatted_steps}
     except Exception as ollama_err:
-        print(f"[Planner] Local Ollama plan generation skipped: {ollama_err}. Falling back to Gemini.")
+        print(f"[Planner] Local Ollama plan generation skipped: {ollama_err}.")
 
-    # 2. Cloud Fallback (Gemini API)
+    # 2. Cloud Fallback (Guarded by AI Policy)
+    import core.ai_policy as ai_policy
+    if not ai_policy.is_cloud_ai_allowed():
+        logger = getattr(ai_policy, "logger", None)
+        print("[Planner] Cloud AI disabled by policy. Using local fallback plan.")
+        return _fallback_plan(goal)
+
+    ai_policy.assert_cloud_ai_allowed("Gemini Planner")
     import google.generativeai as genai
     from config import get_model_name
 
@@ -245,7 +252,7 @@ def create_plan(goal: str, context: str = "") -> dict:
 
 
 def _fallback_plan(goal: str) -> dict:
-    print("[Planner] 🔄 Fallback plan")
+    print("[Planner] [FALLBACK] Using deterministic local fallback plan")
     return {
         "goal": goal,
         "steps": [
@@ -261,6 +268,34 @@ def _fallback_plan(goal: str) -> dict:
 
 
 def replan(goal: str, completed_steps: list, failed_step: dict, error: str) -> dict:
+    # 1. Try local Ollama replanning first
+    try:
+        from core.local_ai_provider import get_local_ai_provider
+        provider = get_local_ai_provider()
+        steps = provider.plan(f"Revise plan for goal '{goal}'. Failed step: {failed_step.get('description', '')}. Error: {error}")
+        if steps:
+            formatted_steps = []
+            for s in steps:
+                formatted_steps.append({
+                    "step": s.step_number,
+                    "tool": s.tool if s.tool != "generated_code" else "web_search",
+                    "description": s.description,
+                    "parameters": s.arguments or {"query": s.description},
+                    "critical": True
+                })
+            print(f"[Planner] 🔄 Local Ollama Revised plan: {len(formatted_steps)} steps")
+            return {"goal": goal, "steps": formatted_steps}
+    except Exception as oe:
+        print(f"[Planner] Local replan error: {oe}")
+
+    # 2. Cloud Fallback (Guarded by AI Policy)
+    import core.ai_policy as ai_policy
+    if not ai_policy.is_cloud_ai_allowed():
+        print("[Planner] Cloud AI disabled by policy. Using fallback replan.")
+        return _fallback_plan(goal)
+
+    ai_policy.assert_cloud_ai_allowed("Gemini Replan")
+    import google.generativeai as genai
     from config import get_model_name
     genai.configure(api_key=_get_api_key())
     model = genai.GenerativeModel(

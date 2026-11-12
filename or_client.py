@@ -3,6 +3,7 @@ import sys
 import time
 import base64
 import logging
+from core.conversation_style import CONVERSATION_STYLE
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -28,17 +29,8 @@ BASE_DIR     = _get_base_dir()
 API_KEY_PATH = BASE_DIR / "config" / "api_keys.json"
 
 def _load_api_key() -> str:
-    try:
-        with open(API_KEY_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        key = data.get("openrouter_api_key", "").strip()
-        if not key:
-            raise ValueError("openrouter_api_key is empty in api_keys.json")
-        return key
-    except FileNotFoundError:
-        raise RuntimeError(f"api_keys.json not found at: {API_KEY_PATH}")
-    except Exception as e:
-        raise RuntimeError(f"Failed to load OpenRouter API key: {e}")
+    from config import get_api_key
+    return get_api_key("openrouter_api_key")
 
 TEXT_MODELS: list[str] = [
     "meta-llama/llama-3.3-70b-instruct:free",
@@ -96,6 +88,8 @@ class OpenRouterClient:
         temperature: float,
         response_format: Optional[dict] = None,
     ) -> Optional[str]:
+        from core.ai_policy import assert_cloud_ai_allowed
+        assert_cloud_ai_allowed("OpenRouter")
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type":  "application/json",
@@ -154,7 +148,18 @@ class OpenRouterClient:
         temperature: float = DEFAULT_TEMPERATURE,
         response_format: Optional[dict] = None,
     ) -> str:
-        # 1. PRIMARY & ONLY NORMAL PROVIDER: Ollama Local (fotiecodes/jarvis:latest)
+        from core.ai_policy import is_cloud_ai_allowed
+        has_images = any(isinstance(m.get("content"), list) for m in messages)
+        if is_cloud_ai_allowed() and self.api_key:
+            for candidate in ([model] if model else pool[:2]):
+                if self._is_rate_limited(candidate):
+                    continue
+                response = self._call(candidate, messages, max_tokens, temperature, response_format)
+                if response:
+                    return response
+        if has_images:
+            # Never turn image bytes into a text prompt and pretend it is vision.
+            raise RuntimeError("Image analysis unavailable: configure a cloud vision provider or use screen analysis.")
         try:
             from core.ollama_provider import is_ollama_available, auto_start_ollama, get_ollama_provider
             if not is_ollama_available():
@@ -164,11 +169,12 @@ class OpenRouterClient:
             if is_ollama_available():
                 logger.info("[AIProvider] Primary Provider selected: OLLAMA_LOCAL (fotiecodes/jarvis:latest)")
                 provider = get_ollama_provider()
-                full_prompt = "\n".join([f"{m.get('role', 'user').upper()}: {m.get('content', '')}" for m in messages])
+                system_prompt = "\n".join(str(m.get("content", "")) for m in messages if m.get("role") == "system")
+                full_prompt = "\n".join(f"{m.get('role', 'user').upper()}: {m.get('content', '')}" for m in messages if m.get("role") != "system")
                 
                 # Check for generate/chat response
-                if hasattr(provider, "generate"):
-                    res = provider.generate(prompt=full_prompt)
+                if hasattr(provider, "chat"):
+                    res = provider.chat(prompt=full_prompt, system_prompt=system_prompt, timeout=15.0)
                     if res.get("success") and res.get("response"):
                         logger.info("[AIProvider] ✓ Success via OLLAMA_LOCAL")
                         return res["response"].strip()
@@ -182,14 +188,16 @@ class OpenRouterClient:
 
         # Strict Ollama-First Enforcement: ZERO normal cloud AI calls, ZERO HTTP 404 cascades
         logger.warning("[AIProvider] Returning honest local-AI-unavailable message. Cloud fallbacks disabled.")
-        return "Boss, local AI engine (Ollama: fotiecodes/jarvis) is currently offline or unreachable. Please start Ollama to enable AI reasoning."
+        raise RuntimeError("AI providers are unavailable. Check your configured cloud key or local Ollama connection.")
 
     def chat(
         self,
         prompt: str,
         system: str = (
-            "You are JARVIS, an AI assistant inspired by Tony Stark's assistant. "
-            "Be concise, helpful, and precise."
+            "You are JARVIS, Yajat's practical laptop assistant. "
+            "Use short, natural Hinglish unless another language is requested. "
+            "No movie roleplay, invented protocols or unrelated coffee jokes. "
+            "Never claim an action happened without its verified tool result.\n" + CONVERSATION_STYLE
         ),
         model: Optional[str] = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,

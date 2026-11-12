@@ -297,11 +297,14 @@ def run_all_tests() -> Dict[str, Tuple[str, str]]:
     report: Dict[str, Tuple[str, str]] = {}
 
     for name, test_fn in suite:
+        print(f"[{name}] Starting...", flush=True)
         try:
             status, detail = test_fn()
             report[name] = (status, detail)
+            print(f"[{name}] -> {status}: {detail}", flush=True)
         except Exception as e:
             report[name] = ("FAIL", f"Unhandled exception: {e}")
+            print(f"[{name}] -> FAIL (Exception): {e}", flush=True)
 
     for comp, (status, detail) in report.items():
         print(f" {comp:<24} {status:<12} : {detail}")

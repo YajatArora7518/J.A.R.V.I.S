@@ -51,10 +51,24 @@ class _GenAIModelWrapper:
             self._use_new = False
 
     def generate_content(self, prompt, **kwargs):
+        class _Resp:
+            def __init__(self, text):
+                self.text = text
+
+        # 1. Local AI Policy Check
+        import core.ai_policy as ai_policy
+        if not ai_policy.is_cloud_ai_allowed():
+            try:
+                from core.local_ai_provider import get_local_ai_provider
+                provider = get_local_ai_provider()
+                res = provider.chat(prompt, system="You are an expert software developer.")
+                if res:
+                    return _Resp(res)
+            except Exception:
+                pass
+            ai_policy.assert_cloud_ai_allowed("Gemini Code Helper")
+
         if self._use_new:
-            class _Resp:
-                def __init__(self, text):
-                    self.text = text
             models_to_try = [self.model_name, "gemini-2.5-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"]
             for m in models_to_try:
                 try:

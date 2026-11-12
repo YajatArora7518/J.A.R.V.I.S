@@ -1,21 +1,13 @@
 # actions/whatsapp.py
-# Dedicated WhatsApp Web Controller for JARVIS (Strict Yajat Chrome Profile)
+# Unified WhatsApp Controller for JARVIS (Desktop-First, Web only on explicit request)
 
-import sys
-import urllib.parse
-from pathlib import Path
-from typing import Dict, Any, List, Optional
+import logging
+from typing import Dict, Any, Optional
 
 from actions.chrome_profile import open_url_in_chrome_profile, resolve_chrome_profile
 from core.security import default_security_manager, RiskLevel
 
-# Standard contact database for resolution
-KNOWN_CONTACTS = [
-    {"name": "Rahul Sharma", "phone": "+919876543210"},
-    {"name": "Rahul Kumar", "phone": "+919876543211"},
-    {"name": "Priya Patel", "phone": "+919876543212"},
-    {"name": "Stark Industries", "phone": "+18005550199"},
-]
+logger = logging.getLogger("JARVIS.WhatsApp")
 
 
 def resolve_whatsapp_contact(query: str) -> Dict[str, Any]:
@@ -80,8 +72,8 @@ def whatsapp(
             message = parsed["message"]
 
     # Explicit security parameters (never auto-set to True by untrusted user prompts)
-    confirm_call = bool(kwargs.get("confirm_call", confirm_call))
-    force_send = bool(kwargs.get("force_send", force_send))
+    confirm_call = kwargs.get("confirm_call", confirm_call) is True
+    force_send = kwargs.get("force_send", force_send) is True
 
     action_str = str(action or "open").lower().strip()
 
@@ -101,12 +93,58 @@ def whatsapp(
         elif "search" in low_p:
             action_str = "search_contact"
 
-    if action_str == "open":
-        from actions.whatsapp_automation import whatsapp_open
-        return whatsapp_open()
+    if action_str in ["open", "launch"]:
+        # ═══════════════════════════════════════════════════════
+        # CRITICAL ROUTING GATE: Desktop vs Web
+        # WhatsApp Web is ONLY opened when mode="web" is explicitly
+        # set by the intent router (WHATSAPP_WEB intent).
+        # kwargs["query"] / contact containing "web" is NOT sufficient
+        # — this was the root cause of the accidental Web opening.
+        # ═══════════════════════════════════════════════════════
+        explicit_web_mode = str(kwargs.get("mode", "")).lower() == "web"
+        if explicit_web_mode:
+            logger.info("[WHATSAPP_TELEMETRY] TargetMode=WHATSAPP_WEB (explicit mode=web)")
+            from actions.whatsapp_automation import whatsapp_open
+            return whatsapp_open()
+
+        # Desktop ONLY: focus or launch installed Windows WhatsApp Desktop
+        logger.info("[WHATSAPP_TELEMETRY] TargetMode=WHATSAPP_DESKTOP")
+        from actions.windows_whatsapp_desktop_executor import windows_whatsapp_desktop_executor
+        ok, msg = windows_whatsapp_desktop_executor.focus_installed_whatsapp_desktop()
+        if not ok:
+            # STRICT: Desktop failed → truthful failure, NO Web fallback
+            logger.warning(f"[WHATSAPP_TELEMETRY] Desktop launch FAILED. WebFallback=FALSE")
+            return {
+                "success": False,
+                "action": "open",
+                "message": f"WhatsApp Desktop nahi khul paya boss. {msg}",
+                "target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP",
+                "verified": False,
+                "web_fallback": False
+            }
+        return {
+            "success": True,
+            "action": "open",
+            "message": msg,
+            "target": "WINDOWS_INSTALLED_WHATSAPP_DESKTOP",
+            "verified": True,
+            "web_fallback": False
+        }
 
     # Ambiguity check first if contact is provided
     if contact:
+        # Check known ambiguous contacts first (e.g. 'Rahul' matching multiple people)
+        from actions.whatsapp_automation import resolve_contact as resolve_wa_contact
+        wa_check = resolve_wa_contact(contact)
+        if wa_check.get("status") == "AMBIGUOUS_CONTACT":
+            return {
+                "success": False,
+                "action": action_str,
+                "message": wa_check["message"],
+                "matches": wa_check.get("matches", []),
+                "requires_clarification": True,
+                "verified": False
+            }
         from actions.windows_whatsapp_desktop_executor import resolve_contact_ambiguity
         amb_check = resolve_contact_ambiguity(contact)
         if amb_check.get("status") == "AMBIGUOUS_CONTACT":
@@ -119,7 +157,13 @@ def whatsapp(
                 "verified": False
             }
 
-    if action_str in ["send_message", "send"]:
+    if action_str in ("read", "read_messages", "open_chat", "search_contact"):
+        from actions.whatsapp_desktop_dom import desktop_action
+        if unread_only:
+            return {"success": False, "verified": False, "message": "Unread-only desktop reading abhi available nahi hai. Visible chat messages padh sakta hoon."}
+        return desktop_action("read" if action_str in ("read", "read_messages") else "open_chat", contact, limit=kwargs.get("limit", 5))
+
+    if action_str in ["send_message", "send", "reply"]:
         if not force_send:
             return {
                 "success": False,
