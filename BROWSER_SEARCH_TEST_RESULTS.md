@@ -28,3 +28,13 @@ Compilation succeeded for all modified Python modules. No full 71-file baseline 
 ## Browser-session test limitation
 
 CDP port 9222 was inactive. The no-CDP test confirms the browser search returns safely without invoking browser automation. Actual existing-session navigation/reuse is therefore **NOT VERIFIED**. No browser was launched for testing.
+
+## Final audit addendum (2026-11-12)
+
+A static re-audit was performed on branch `audit/final-search-audit-20261112`; full findings are in [JARVIS_FINAL_SEARCH_AUDIT_20261112.md](JARVIS_FINAL_SEARCH_AUDIT_20261112.md).
+
+- Test status for this audit session: **NOT RUN**. The audit was a static code review over the repository; no Python runtime was attached to this environment, so pytest was not executed here. No test was hidden, deleted, or weakened, and no assertion was changed.
+- Baseline comparison: the counts in this file (42 passed focused; 138 passed / 5 failed / 1 warning regression) remain the saved 2026-11-07 baseline from the original implementation run. Because the audit made **zero code changes**, no new regression is possible from the audit itself; any failure on a local re-run must be compared against this saved baseline and investigated, not dismissed.
+- Re-verified in code (static): the no-CDP no-launch assertion in `tests/test_search_preferences_stage22.py::test_existing_browser_search_interface_does_not_force_launch_when_cdp_missing` matches the guard in `actions/browser_search.py::_search`.
+- Browser/CDP availability in this audit environment: **NOT VERIFIED**; no browser was launched and no profile was modified.
+- Rollback of this addendum: delete this section or do not merge the audit branch. No implementation or test file was changed by the audit.
