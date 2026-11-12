@@ -1,6 +1,12 @@
 # Search Provider Health Report
 
-Checked 2026-11-07. Credential presence was read without printing credential values.
+## Final audit update (2026-11-12)
+
+The 2026-11-12 audit performed **no live provider requests** and could not probe the host machine's credential files or browser/CDP state, so all provider rows below are **NOT VERIFIED** in this audit run; the table records the last verified environment state from the original 2026-11-07 health check. Credential presence was inspected only via committed example files (`config/api_keys.example.json`, `.env.example`); no credential values were printed and no authenticated request was made. One code fix (browser_search engine shadowing) was applied in commit `f832f76`; see [SEARCH_FINAL_AUDIT_20261112.md](SEARCH_FINAL_AUDIT_20261112.md) for full findings, limitations, and rollback instructions.
+
+## Last recorded check (2026-11-07)
+
+Credential presence was read without printing credential values.
 
 | Provider | Configured | Verification result |
 |---|---:|---|
