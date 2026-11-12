@@ -1,78 +1,49 @@
-# Web Search Stage 2.1 — Test Results
+# Web Search Test Results — Final Audit (2026-11-12)
 
-## Stage 2 provider tests
+## Test execution status in this audit: NOT RUN
 
-`python -m pytest tests/test_web_search_stage2.py -q`
+The audit environment is not a Windows JARVIS host: `pywin32`, `playwright`, `faster-whisper`, and the project's test runtime are not installed, so pytest could not be executed here. The audit is a static review of the live files on `main` plus one minimal repair commit (`5dd5b59`, engine-shadowing fix in `actions/browser_search.py`). **No test file was modified, hidden, deleted, or weakened, and no assertion was changed.** The saved baselines below remain the authoritative test evidence.
 
-**Result:** 16 passed, 0 failed. API providers and browser fallback branches use mocked responses in these tests.
-
-Coverage includes:
-
-- Empty Serper key skips an authenticated request.
-- Valid Serper response normalization and bounded timeout.
-- Both Brave environment variable aliases.
-- Google credentials missing skips the request.
-- Malformed JSON, invalid provider response shape, request timeout, and HTTP 429 handling.
-- DuckDuckGo HTML result parsing.
-- Adjacent HTML text nodes retain spaces in extracted titles/snippets.
-- Provider-to-provider fallback, DuckDuckGo fallback, and the existing browser fallback.
-- All providers unavailable returns a structured failure.
-- Malformed result rows and duplicate URLs are removed.
-- Search failure does not enter an unbound `answer` path.
-- Normalized results remain compatible with `web_research`.
-- `web_search` registration and the 73-tool count remain intact.
-
-## Requested regression selection
-
-Executed together:
+## Required test commands (for the maintainer on the target Windows machine)
 
 ```text
-python -m pytest tests/test_web_search_stage2.py tests/test_web_search.py tests/test_web_reliability.py tests/test_live_search_recovery.py tests/test_chrome_whatsapp_web_search.py tests/test_web_first_master.py tests/test_addressing.py tests/test_tools.py tests/test_runtime_glitches.py tests/test_voice.py tests/test_voice_call_recovery.py tests/test_voice_chat_parity.py -q
+python -m pytest tests/test_web_search_stage2.py tests/test_web_search.py tests/test_web_reliability.py tests/test_live_search_recovery.py -q
+python -m pytest tests/test_search_preferences_stage22.py tests/test_stage3_search_intelligence.py -q
+python -m pytest tests/test_chrome_whatsapp_web_search.py tests/test_extended_browser_controls.py tests/test_web_automation.py tests/test_web_first_master.py -q
+python -m pytest tests/test_tools.py tests/test_addressing.py -q
+python -m compileall -q actions/web_search.py actions/web_search_providers.py actions/web_research.py actions/fetch_webpage.py actions/browser_search.py actions/browser_automation.py actions/chrome_profile.py actions/search_preferences.py
 ```
 
-**Aggregate result:** 231 passed, 5 failed, 4 warnings. No tests were skipped.
+## Saved baselines (recorded on the target machine, 2026-11-07)
 
-The five failures are the same pre-existing failures recorded in `../test_baseline_summary.json`:
+- Stage 2 provider tests (`tests/test_web_search_stage2.py`): **16 passed, 0 failed** — covers empty credentials skip, both Brave key names, bounded timeouts, HTTP 429, malformed JSON, invalid shapes, DuckDuckGo HTML parsing, provider/browser fallback, duplicate-URL removal, `web_research` compatibility, `web_search` registration, and the **exactly-73-tools** assertion.
+- Focused Stage 2.2 + Stage 3 selection: **42 passed** — covers per-browser preference independence, custom URL encoding/rejection, corrupt-config recovery, no-CDP no-launch behavior, provider order, circuit breaker, duplicate removal, source ranking, date distinctions, bounded table extraction, intent routing, and 73-tool registry preservation.
+- Requested regression selection (12 files): **231 passed, 5 failed, 4 warnings** — the 5 failures are pre-existing and identical to the saved baseline (`test_web_first_master.py` 7P/3F, `test_addressing.py` 5P/2F: existing app-launch/environment, YouTube-intent, and WhatsApp read-intent assertions). No search-provider code caused them.
+- Full 71-file baseline-style run: **999 passed, 40 failed, 5 timed-out files** — matching the saved baseline; the 5 timeout files (`test_proactive_companion.py`, `test_universal_app_launcher.py`, `test_universal_control.py`, `test_universal_desktop_control.py`, `test_universal_social_automation.py`) are unchanged.
 
-| File | Current result | Saved baseline | Notes |
-|---|---:|---:|---|
-| `tests/test_web_first_master.py` | 7 passed, 3 failed | 7 passed, 3 failed | Existing app-launch/environment failures and YouTube intent expectation. No search provider code caused them. |
-| `tests/test_addressing.py` | 5 passed, 2 failed | 5 passed, 2 failed | Existing WhatsApp read-intent assertion and app-response type expectation. |
+## New-test coverage requested in this assignment — where it already exists
 
-All other files in the selection passed. This includes existing web search, web research, live-search recovery, WhatsApp/search integration, tool registration, and Stage 1 runtime/voice checks. The baseline comparison is limited to the per-file outcomes saved in the supplied baseline artifact; the full 71-file suite was not rerun.
+| Required scenario | Existing coverage (file) |
+|---|---|
+| CDP inactive → no Chrome launch | `tests/test_search_preferences_stage22.py::test_existing_browser_search_interface_does_not_force_launch_when_cdp_missing` |
+| Existing CDP session reuse | Runtime behavior only; live CDP reuse is **NOT VERIFIED** (needs CDP-active machine) |
+| Empty credentials | `test_web_search_stage2.py::test_empty_serper_key_skips_authenticated_request`, `test_google_missing_credentials_skips_request` |
+| Provider timeout | `test_serper_timeout_and_rate_limit_are_handled`, plus bounded `(3.0, 5.0)` timeout assertion |
+| HTTP 429 | `test_serper_timeout_and_rate_limit_are_handled` |
+| Invalid JSON | `test_google_malformed_json_fails_safely` |
+| Duplicate results | `test_malformed_rows_and_duplicate_urls_are_dropped_and_normalized`, Stage 3 dedup test |
+| DuckDuckGo/Bing fallback | `test_duckduckgo_is_zero_cost_fallback_after_paid_providers_fail`, `test_internal_bing_fallback_is_reported_as_a_fallback` |
+| Chrome Google/Bing/custom URL generation | `test_custom_template_and_site_search_are_encoded_and_validated`, `test_browser_engines_resolve_independently`, `test_custom_url_and_missing_engine_errors` |
+| Invalid custom URL rejection | `test_custom_template_and_site_search_are_encoded_and_validated` (`javascript:`, `127.0.0.1`) |
+| Existing `web_search` compatibility | `test_search_tool_schema_and_public_handler_are_preserved`, `test_web_research_receives_compatible_normalized_result`, `test_search_failure_does_not_hit_unbound_answer_path` |
+| Exactly 73 registered tools | `test_search_tool_schema_and_public_handler_are_preserved`, `test_search_tool_registration_remains_present` |
 
-The four warnings were existing dependency deprecation and legacy test-return warnings; no warning indicated a Stage 2 provider failure.
+A CDP-active session-reuse test cannot be authored meaningfully without a live CDP machine; a mock-based one would only restate the existing no-CDP and fallback tests, and a mocked run would not be live verification.
 
-## Other checks
+## Regression risk of the audit's single code change
 
-- `python -m compileall -q actions/web_search.py actions/web_search_providers.py actions/web_research.py actions/browser_search.py tests/test_web_search_stage2.py` — passed.
-- Runtime registry introspection — 73 registered tools; `web_search` handler and dictionary schema present.
-- Provider status initialization — Google, Serper, and Brave unavailable due to missing credentials; DuckDuckGo enabled as the no-cost fallback.
+The repair (commit `5dd5b59`) touches only `actions/browser_search.py::search_in_browser`'s local import name. It executes only on the active-CDP path; all recorded test runs had CDP inactive, so recorded outcomes are unaffected. Expected result on a rerun: identical to the saved baselines. If any unexplained new regression appears after merging, revert `5dd5b59` (see rollback below), document it, and stop — per the stop condition.
 
-No paid provider was contacted. Valid credentials, HTTP failures, throttling, and malformed API payloads were exercised with mocks.
+## Rollback
 
-## Stage 2.1 full baseline-style run
-
-The saved baseline lists 71 test files and records a 25-second timeout per file. The full rerun used one separate pytest process per baseline entry (`python -m pytest -q tests/<baseline filename>`), each capped at 25 seconds.
-
-| Comparison | Passed | Failed | Skipped | Timed out |
-|---|---:|---:|---:|---:|
-| Saved baseline | 999 | 40 | 0 recorded | 5 |
-| Stage 2.1 current run | 999 | 40 | 0 | 5 |
-
-The same five timeout files remain: `test_proactive_companion.py`, `test_universal_app_launcher.py`, `test_universal_control.py`, `test_universal_desktop_control.py`, and `test_universal_social_automation.py`.
-
-The current checkout is missing `tests/test_baseline_regression.py`. I ran its saved source from `../JARVIS MAIN_backup/tests/regression/test_baseline_regression.py` against the current project without copying or changing it: **7 passed, 1 failed**. The failure expects “Schedule for Monday”; the current college mode returns “Monday Schedule (2 classes)”. This test file is not present in the current checkout and college mode was not changed in Stage 2. The saved baseline artifact records 8 passed for its original file.
-
-`tests/test_real_startup.py` exited successfully after its event-loop smoke test; that one test failed in the saved baseline. The five known Stage 2 regression-selection failures remain the same per-file counts as baseline. No Stage 2-related new regression was found.
-
-The full-run aggregate includes the archived baseline test’s one failure and excludes the separate 16 Stage 2 tests. Adding those new tests gives 1,015 passing checks across the baseline-style run plus Stage 2 coverage. Timeout-affected files are reported separately and are not counted as passes.
-
-## Real provider and browser checks
-
-- Direct composite-provider invocation: `search_duckduckgo("Python official documentation", 5)` returned five real rows in under one second; metadata identified Bing, not DuckDuckGo.
-- Integrated cascade invocation: `web_search_structured("Python official documentation", num_results=5, force_refresh=True)` returned five normalized rows in 0.8 seconds. The browser fallback was mocked to return empty only to ensure an unavailable live provider could not start Chrome during verification.
-- Live integrated query `Python official documentation`: 5/5 normalized results had titles, URLs, and snippets; 0 duplicate URLs; completed in 0.8 seconds. The source was **Bing**, reached through the existing search provider’s HTML fallback. This does not count as a verified DuckDuckGo result.
-- DuckDuckGo HTML endpoint returned HTTP 202. A direct `ddgs` query with backend `duckduckgo` returned “No results found.” Direct live DuckDuckGo success is **NOT VERIFIED**. The mock tests cover the expected fallback when DuckDuckGo is empty or fails.
-- Chrome windows are open, but CDP port 9222 is inactive and no supported attachable Chrome/CDP session is exposed. The browser fallback was not invoked live because the current default can launch a controlled Chrome process when CDP is absent. No competing Chrome process was launched and no profile, cookie, or session was changed. Browser integration is **NOT VERIFIED**.
-- Google Custom Search, Serper, and Brave have no configured credentials in this runtime; each is **NOT VERIFIED — CREDENTIALS UNAVAILABLE**.
+`git revert 5dd5b59`, or restore `actions/browser_search.py` from `main` (blob `d3c7a8f`). No test file, tool registration, intent routing, or provider module was changed by this audit.
