@@ -1,5 +1,9 @@
 # Browser Search Stage 2.2 Report
 
+## Final audit update (2026-11-12)
+
+A static audit of the Stage 2.2 implementation found and fixed one real bug in `actions/browser_search.py` (commit `f832f76`, branch `audit/fix-browser-search-engine-shadowing`): the local import `from actions.browser_automation import browser_automation_engine as engine` shadowed the `engine` parameter, so whenever CDP was active, `build_search_url()` raised `ValueError("Unknown or unavailable search engine")` and the broad `except` silently returned `[]` for every query, ignoring global/per-browser search engine preferences. The bug never appeared in recorded runs because every prior recorded run had CDP inactive. The fix renames the local import to `automation_engine`; public signatures and the no-CDP path are unchanged. Full findings, test-execution status (tests NOT RUN — no Windows JARVIS runtime in the audit environment), limitations, and rollback instructions are in [SEARCH_FINAL_AUDIT_20261112.md](SEARCH_FINAL_AUDIT_20261112.md).
+
 ## Outcome
 
 Stage 2.2 implementation and offline acceptance checks passed. Browser search preferences are now managed by JARVIS in a versioned local configuration. The feature never edits native browser settings, cookies, profile files, or Windows default-browser settings.
