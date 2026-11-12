@@ -1,5 +1,9 @@
 # Combined Stage 2.2 + Stage 3 Report
 
+## Final audit update (2026-11-12)
+
+The 2026-11-12 final audit statically reviewed the complete Stage 2.2 + Stage 3 implementation on `main` and found **one real bug**, now fixed in commit `f832f76` (branch `audit/fix-browser-search-engine-shadowing`): in `actions/browser_search.py`, `search_in_browser()`'s local import shadowed the `engine` parameter, so every active-CDP browser search raised `ValueError` inside `build_search_url()` and silently returned `[]`, ignoring global/per-browser search engine preferences. The fix renames the local import to `automation_engine`; no public interface, tool, or registry change. Full findings (bugs, loopholes, missing things), live-check status (tests NOT RUN — no Windows runtime; browser/CDP NOT VERIFIED; credentials not printed and no authenticated requests made), and rollback instructions are in [SEARCH_FINAL_AUDIT_20261112.md](SEARCH_FINAL_AUDIT_20261112.md). The original Stage 2.2/Stage 3 content follows.
+
 ## Result
 
 Stage 2.2 and the scoped Stage 3 implementation are complete. Focused acceptance tests passed. The broader relevant regression selection has 5 existing unrelated failures; the full 71-file baseline suite was not rerun. No Stage 3 YouTube video/live-stream work was started.
@@ -38,3 +42,5 @@ Edge, Firefox, and Brave have independent JARVIS preferences but no live adapter
 ## Rollback
 
 To roll back only this assignment, restore the listed implementation/test files from `BACKUPS/STAGE2_2_STAGE3_PRECHANGE_20261107`. If a user-created `config/search_preferences.json` exists, keep or back it up separately before removing it. No such runtime preference file was created during testing. Avoid whole-repository restoration because the starting worktree contained unrelated changes.
+
+To roll back the 2026-11-12 audit changes only, revert the commits on branch `audit/fix-browser-search-engine-shadowing` (or restore `actions/browser_search.py` from `main` blob `d3c7a8f`); the nine report updates are additive and revert with the same revert.
