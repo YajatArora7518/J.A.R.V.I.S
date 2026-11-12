@@ -1,5 +1,9 @@
 # Stage 3 Search Intelligence Report
 
+## Final audit update (2026-11-12)
+
+The 2026-12 static audit found the Stage 3 intelligence layers (provider order, timeouts, bounded retries, circuit breaker, result normalization, dedup, ranking, date distinctions, table extraction, source-grounded research) implemented and coherent. The single real bug found was in `actions/browser_search.py` (engine shadowing on the active-CDP path), fixed in commit `f832f76`; see [SEARCH_FINAL_AUDIT_20261112.md](SEARCH_FINAL_AUDIT_20261112.md). Additional documented loopholes (not fixed, to preserve zero-breakage) include: `search_duckduckgo` returns `[]` instead of `None` on failure so the circuit breaker never opens for it; the DDGS retry path is skipped for queries of 4+ words; the `"Browser Google"` provider label is hard-coded even when another engine is selected. Tests were NOT RUN in the audit environment (no Windows JARVIS runtime); prior recorded results remain the baseline. Rollback: revert the audit branch commits.
+
 ## Implemented
 
 - Kept the existing Google Custom Search → Serper → Brave → DuckDuckGo/Bing → browser fallback model and made configured provider preference affect provider order.
