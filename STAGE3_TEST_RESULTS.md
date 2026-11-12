@@ -1,5 +1,11 @@
 # Stage 3 Test Results
 
+## Final audit update (2026-11-12)
+
+In the 2026-11-12 final audit, these suites were **NOT RUN** (no Windows JARVIS runtime in the audit environment). Static review only. No test was hidden, deleted, or weakened; the recorded results below remain the saved baseline. The audit's one code fix (`actions/browser_search.py` engine shadowing, commit `f832f76`) must be validated on the target machine with the focused command below; expected impact is none on these suites because the changed path only runs when CDP is active. Rollback instructions are in [SEARCH_FINAL_AUDIT_20261112.md](SEARCH_FINAL_AUDIT_20261112.md).
+
+## Recorded baseline
+
 Focused Stage 2.2 + Stage 3 checks:
 
 ```text
@@ -16,4 +22,4 @@ pytest -q tests/test_search_preferences_stage22.py tests/test_web_search_stage2.
 
 Result: **138 passed, 5 failed, 1 warning**. Existing failures remain in WhatsApp routing/foreground behavior and local application window verification/website alias resolution; none are in changed search paths. Both affected files already had baseline failures. The complete 71-file baseline suite was not rerun.
 
-Compilation: passed for all modified Python modules. Live provider verification is documented in [SEARCH_PROVIDER_HEALTH_REPORT.md](SEARCH_PROVIDER_HEALTH_REPORT.md); only Bing fallback was live verified in this environment.
+Compilation: passed for all modified Python modules. Live provider verification is documented in [SEARCH_PROVIDER_HEALTH_REPORT.md](SEARCH_PROVIDER_HEALTH_REPORT.md); only Bing fallback was live verified in the recorded environment.
