@@ -38,3 +38,13 @@ Edge, Firefox, and Brave have independent JARVIS preferences but no live adapter
 ## Rollback
 
 To roll back only this assignment, restore the listed implementation/test files from `BACKUPS/STAGE2_2_STAGE3_PRECHANGE_20261107`. If a user-created `config/search_preferences.json` exists, keep or back it up separately before removing it. No such runtime preference file was created during testing. Avoid whole-repository restoration because the starting worktree contained unrelated changes.
+
+## Final audit addendum (2026-11-12)
+
+A final static audit was performed on branch `audit/final-search-audit-20261112`; complete findings with per-area verdicts are in [JARVIS_FINAL_SEARCH_AUDIT_20261112.md](JARVIS_FINAL_SEARCH_AUDIT_20261112.md). The nine related reports each received a dated addendum with actual file references, commands, baseline comparisons, and NOT RUN / NOT VERIFIED labels.
+
+- Audit scope: preference store, custom URL validation/persistence/recovery/reset, CDP no-launch guard, provider order/timeouts/retries/rate limits/circuit breaker, normalization/dedup/ranking/dates, table extraction and source grounding, registry count/handlers/schemas, and `web_search` public signatures.
+- Audit verdict: **no syntax or runtime-breaking defect found**; three low-severity observations (F7 cache pre-pop redundancy, F8 provider-key mapping gap for the browser label, F9 DuckDuckGo status overstatement) and three informational notes (F10 process-local health, F11 unguarded `int()` cast in the legacy handler, F12 domain-specific cricket refinement) were recorded. **No code was changed** — zero-breakage rule respected; Stage 4, YouTube video analysis, and live-stream analysis were not started.
+- Tests: **NOT RUN** in the audit session (static review; no runtime attached). The saved 2026-11-07 baseline (42 focused passed; 138/5/1 regression) stands; no test was hidden, deleted, or weakened.
+- Live checks: credentials were not probed and no authenticated request was made from this audit (**NOT RUN**); browser/CDP status was **NOT VERIFIED** in the audit environment and no browser was launched or profile modified. No mocked result was reported as live.
+- Rollback of this addendum: delete the added audit sections or do not merge the branch. The audit branch touches only report/documentation files (one new findings file plus dated addenda in the nine reports).
