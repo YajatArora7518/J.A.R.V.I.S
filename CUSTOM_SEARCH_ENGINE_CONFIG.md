@@ -1,5 +1,9 @@
 # Custom Search Engine Configuration
 
+## Final audit update (2026-11-12)
+
+Static audit of custom-engine validation, persistence, recovery, and reset found no defect. The one real bug found in this audit was elsewhere (`actions/browser_search.py` engine shadowing; fixed in commit `f832f76`) — it affected engine resolution when CDP is active, and is documented in [SEARCH_FINAL_AUDIT_20261112.md](SEARCH_FINAL_AUDIT_20261112.md). Tests were NOT RUN in the audit environment (no Windows JARVIS runtime); the focused suite `tests/test_search_preferences_stage22.py` covers the behaviors below and must be run on the target machine. Rollback: `git revert` of the audit branch commits, or restore `actions/browser_search.py` from `main`.
+
 ## Storage
 
 JARVIS-managed preferences use the versioned `config/search_preferences.json` file. It is created on the first preference change; it does not migrate or overwrite `config/api_keys.json` or native browser configuration.
