@@ -1,6 +1,16 @@
 # Browser Search Stage 2.2 Test Results
 
-## Executed
+## Final audit update (2026-11-12)
+
+In the 2026-11-12 final audit, the documented test suites were **NOT RUN**: the audit environment had no Windows host with the JARVIS runtime dependencies (`pywin32`, `playwright`, `faster-whisper`, etc.). The audit was a static review of the live files on `main`. No tests were hidden, deleted, or weakened, and no test files were modified. The prior recorded results below remain the saved baseline. The one code fix from this audit (browser_search engine shadowing, commit `f832f76`) is additive and must be validated on a Windows machine with:
+
+```text
+pytest -q tests/test_search_preferences_stage22.py tests/test_web_search_stage2.py tests/test_stage3_search_intelligence.py
+```
+
+Rollback instructions are in [SEARCH_FINAL_AUDIT_20261112.md](SEARCH_FINAL_AUDIT_20261112.md).
+
+## Executed (recorded baseline)
 
 Focused command:
 
